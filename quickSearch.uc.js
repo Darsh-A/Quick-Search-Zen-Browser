@@ -104,6 +104,7 @@
                 transform: scale(1.1);
                 color: #000;
             }
+            .z-index: 10000;
         `;
         
         const styleElement = document.createElement('style');
