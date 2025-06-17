@@ -185,6 +185,7 @@
                 font-size: 12px;
                 color: #aaa;
             }
+            .z-index: 10000;
         `;
         
         const styleElement = document.createElement('style');
