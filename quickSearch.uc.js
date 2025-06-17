@@ -322,7 +322,7 @@
         const urlbarTooltip = "Quick Search Normal: Type a query and press Ctrl+Enter\n" +
                             "Quick Search Glance: Type a query and press Ctrl+Shift+Enter\n" +
                             "Prefixes: g: (Google), b: (Bing), d: (DuckDuckGo), e: (Ecosia), " + 
-                            "so: (Stack Overflow), gh: (GitHub), wiki: (Wikipedia)";
+                            "k: (Kagi), so: (Stack Overflow), gh: (GitHub), wiki: (Wikipedia)";
         try {
             urlbar.setAttribute("tooltip", urlbarTooltip);
             urlbar.setAttribute("title", urlbarTooltip);
