@@ -210,6 +210,10 @@
             ecosia: {
                 prefix: 'e:',
                 url: 'https://www.ecosia.org/search?q='
+            },            
+            kagi: {
+                prefix: 'k:',
+                url: 'https://kagi.com/search?q='
             },
             stackoverflow: {
                 prefix: 'so:',
