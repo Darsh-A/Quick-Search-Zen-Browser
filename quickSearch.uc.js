@@ -37,7 +37,11 @@
                 top: 10px;
                 right: 10px;
                 width: 550px;
+                min-width: 200px;
                 height: 300px;
+                min-height: 150px;
+                max-width: 70vw;
+                max-height: 70vh;
                 background-color: #1e1f1f;
                 border-radius: 8px;
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -103,6 +107,21 @@
                 background-color: rgba(220, 220, 220, 0.9);
                 transform: scale(1.1);
                 color: #000;
+            }
+            
+            #quicksearch-resizer {
+               position: absolute;
+               bottom: 0;
+               left: 0;
+               width: 0;
+               height: 0;
+               background:transparent;
+               border-style: solid;
+               border-width: 0 16px 16px 0;
+               border-color: transparent #fff transparent transparent;
+               cursor: sw-resize;
+               z-index: 10001;
+               transform: rotate(180deg);
             }
             .z-index: 10000;
         `;
@@ -499,15 +518,44 @@
             }
         }, 300);
     }
+    
+    const prefs = Services.prefs;
+    const prefNameWidth = "quicksearch.container.width";
+    const prefNameHeight = "quicksearch.container.height";
+
+    function saveContainerDimensions(width, height) {
+        prefs.setIntPref(prefNameWidth, width);
+        prefs.setIntPref(prefNameHeight, height);
+    }
+
+    function loadContainerDimensions() {
+        let width = 550;
+        let height = 300;
+
+        try {
+            width = prefs.getIntPref(prefNameWidth);
+            height = prefs.getIntPref(prefNameHeight);
+        } catch (e) {
+            // Use default values if preferences are not set
+        }
+
+        const container = document.getElementById('quicksearch-container');
+        if (container) {
+            container.style.width = `${width}px`;
+            container.style.height = `${height}px`;
+        }
+    }
 
     // Create and initialize the search container
     function createSearchContainer() {
-        if (document.getElementById('quicksearch-container')) {
-            return document.getElementById('quicksearch-container');
+        let container = document.getElementById('quicksearch-container');
+        if (container) {
+            loadContainerDimensions();
+            return container;
         }
         
         // Create the container elements
-        const container = document.createElement('div');
+        container = document.createElement('div');
         container.id = 'quicksearch-container';
         
         // Container for the browser element
@@ -528,12 +576,59 @@
             closeQuickSearch(container);
         };
         
+        // Create resizer element
+        const resizer = document.createElement('div');
+        resizer.id = 'quicksearch-resizer';
+        
+        let isResizing = false;
+        let startX, startY, startWidth, startHeight;
+        
+        resizer.addEventListener('mousedown', function(e) {
+            isResizing = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startWidth = container.offsetWidth;
+            startHeight = container.offsetHeight;
+            document.addEventListener('mousemove', doResize);
+            document.addEventListener('mouseup', stopResize);
+        });
+        
+        function doResize(e) {
+            if (!isResizing) return;
+            
+            let width = startWidth - (e.clientX - startX);
+            let height = startHeight - (startY - e.clientY);
+            
+            // Enforce minimum dimensions
+            width = Math.max(width, 200);
+            height = Math.max(height, 150);
+
+            // Enforce maximum dimensions
+            width = Math.min(width, window.innerWidth * 0.7);
+            height = Math.min(height, window.innerHeight * 0.7);
+            
+            container.style.width = width + 'px';
+            container.style.height = height + 'px';
+        }
+        
+        function stopResize() {
+            if (!isResizing) return;
+            
+            isResizing = false;
+            document.removeEventListener('mousemove', doResize);
+            document.removeEventListener('mouseup', stopResize);
+            
+            // Save the new dimensions
+            saveContainerDimensions(container.offsetWidth, container.offsetHeight);
+        }
+        
         // Assemble the elements
         container.appendChild(browserContainer);
         container.appendChild(closeButton);
+        container.appendChild(resizer);
         
         document.body.appendChild(container);
-        
+        loadContainerDimensions();
         return container;
     }
 
