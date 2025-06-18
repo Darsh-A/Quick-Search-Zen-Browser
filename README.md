@@ -17,6 +17,11 @@ https://github.com/user-attachments/assets/827215fc-e985-4f71-8646-6e3a6b7e624b
 
 
 ## 🔧 Installation
+
+## Method 1:
+Through [Sine](https://github.com/CosmoCreeper/Sine)
+
+## Method 2:
 ## Part 1: Install fx-autoconfig
 
 1. **Download the Files**
