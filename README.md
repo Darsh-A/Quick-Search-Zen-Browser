@@ -98,6 +98,7 @@ Additional search engines present:
 
 
 ## 🔍 Usage
+Uses Browser Default engines: e.g '@google`
 ### For the `quickSearch.uc.js` file:
 - Open the url bar and type whatever you want to search for.
 - Press `Ctrl + Enter` to open the search popup.
