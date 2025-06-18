@@ -113,45 +113,6 @@
         document.head.appendChild(styleElement);
     };
 
-    // Configuration
-    const config = {
-        searchEngines: {
-            google: {
-                prefix: 'g:',
-                url: 'https://www.google.com/search?q='
-            },
-            bing: {
-                prefix: 'b:',
-                url: 'https://www.bing.com/search?q='
-            },
-            duckduckgo: {
-                prefix: 'd:',
-                url: 'https://duckduckgo.com/?q='
-            },
-            ecosia: {
-                prefix: 'e:',
-                url: 'https://www.ecosia.org/search?q='
-            },
-            kagi: {
-                prefix: 'k:',
-                url: 'https://kagi.com/search?q='
-            },
-            stackoverflow: {
-                prefix: 'so:',
-                url: 'https://stackoverflow.com/search?q='
-            },
-            github: {
-                prefix: 'gh:',
-                url: 'https://github.com/search?q='
-            },
-            wikipedia: {
-                prefix: 'wiki:',
-                url: 'https://en.wikipedia.org/wiki/Special:Search?search='
-            }
-        },
-        defaultEngine: 'google'
-    };
-
     // Function to ensure Services are available
     function ensureServicesAvailable() {
         if (typeof Services === 'undefined' && typeof Components !== 'undefined') {
@@ -320,191 +281,163 @@
         }, true);
         
         // Update the tooltip to include Glance mode information
-        const urlbarTooltip = "Quick Search Normal: Type a query and press Ctrl+Enter\n" +
+        let urlbarTooltip = "Quick Search Normal: Type a query and press Ctrl+Enter\n" +
                             "Quick Search Glance: Type a query and press Ctrl+Shift+Enter\n" +
-                            "Prefixes: g: (Google), b: (Bing), d: (DuckDuckGo), e: (Ecosia), " + 
-                            "k: (Kagi), so: (Stack Overflow), gh: (GitHub), wiki: (Wikipedia)";
-        try {
-            urlbar.setAttribute("tooltip", urlbarTooltip);
-            urlbar.setAttribute("title", urlbarTooltip);
-        } catch (error) {
-            // Non-critical if tooltip fails
-        }
+                            "Prefixes: ";
+
+        Services.search.getEngines().then(engines => {
+            engines.forEach(engine => {
+                if (engine._definedAliases && engine._definedAliases.length > 0) {
+                    urlbarTooltip += engine._definedAliases[0] + " (" + engine.name + "), ";
+                }
+            });
+            urlbarTooltip = urlbarTooltip.slice(0, -2);
+            try {
+                urlbar.setAttribute("tooltip", urlbarTooltip);
+                urlbar.setAttribute("title", urlbarTooltip);
+            } catch (error) {
+                // Non-critical if tooltip fails
+            }
+        });
     }
+
+      async function getSearchURLFromInput(input) {
+          let engineName = document.getElementById("urlbar-search-mode-indicator-title").innerText.trim();
+          let engines = await Services.search.getEngines();
+          let engine = engines.find(e => e.name === engineName);
+          if (!engine) engine = await Services.search.getDefault();
+          let searchTerm = input.trim();
+          let submission = engine.getSubmission(searchTerm);
+          return submission.uri.spec;
+      }
+    
 
     // Function to open a URL in Zen Browser's Glance mode
     function openInGlanceMode(query) {
-        let searchEngine = config.defaultEngine;
-        let searchQuery = query;
-        
-        for (const [engine, engineData] of Object.entries(config.searchEngines)) {
-            if (query.startsWith(engineData.prefix)) {
-                searchEngine = engine;
-                searchQuery = query.substring(engineData.prefix.length).trim();
-                break;
-            }
-        }
-        
-        const baseUrl = config.searchEngines[searchEngine].url;
-        let searchUrl;
-        
-        if (searchEngine === 'google') {
-            searchUrl = baseUrl + encodeURIComponent(searchQuery);
-        } else if (searchEngine === 'stackoverflow') {
-            searchUrl = baseUrl + encodeURIComponent(searchQuery) + '&s=relevance';
-        } else if (searchEngine === 'github') {
-            searchUrl = baseUrl + encodeURIComponent(searchQuery) + '&type=repositories';
-        } else {
-            searchUrl = baseUrl + encodeURIComponent(searchQuery);
-        }
-        
-        try {
-            if (window.gZenGlanceManager) {
-                const browserRect = document.documentElement.getBoundingClientRect();
-                const centerX = browserRect.width / 2;
-                const centerY = browserRect.height / 2;
-                
-                const data = {
-                    url: searchUrl,
-                    x: centerX,
-                    y: centerY,
-                    width: 10,
-                    height: 10
-                };
-                
-                window.gZenGlanceManager.openGlance(data);
-            } else {
+        getSearchURLFromInput(query).then(searchUrl => {
+            try {
+                if (window.gZenGlanceManager) {
+                    const browserRect = document.documentElement.getBoundingClientRect();
+                    const centerX = browserRect.width / 2;
+                    const centerY = browserRect.height / 2;
+
+                    const data = {
+                        url: searchUrl,
+                        x: centerX,
+                        y: centerY,
+                        width: 10,
+                        height: 10
+                    };
+
+                    window.gZenGlanceManager.openGlance(data);
+                } else {
+                    gBrowser.addTab(searchUrl, {
+                        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal()
+                    });
+                }
+            } catch (error) {
+                console.error("Error opening glance mode:", error);
                 gBrowser.addTab(searchUrl, {
                     triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal()
                 });
             }
-        } catch (error) {
-            console.error("Error opening glance mode:", error);
-            gBrowser.addTab(searchUrl, {
-                triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal()
-            });
-        }
+        });
     }
 
     // Process the search query and show in in-browser container
     function handleQuickSearch(query, urlbar) {
-        let searchEngine = config.defaultEngine;
-        let searchQuery = query;
-        
-        // Check if query starts with a search engine prefix
-        for (const [engine, engineData] of Object.entries(config.searchEngines)) {
-            if (query.startsWith(engineData.prefix)) {
-                searchEngine = engine;
-                searchQuery = query.substring(engineData.prefix.length).trim();
-                break;
-            }
-        }
-        
         ensureServicesAvailable();
-        
-        // Build the search URL - handle special cases for better compatibility
-        let searchUrl;
-        const baseUrl = config.searchEngines[searchEngine].url;
-        
-        // Some engines work better with different parameter styles
-        if (searchEngine === 'google') {
-            searchUrl = baseUrl + encodeURIComponent(searchQuery);
-        } else if (searchEngine === 'stackoverflow') {
-            searchUrl = baseUrl + encodeURIComponent(searchQuery) + '&s=relevance';
-        } else if (searchEngine === 'github') {
-            searchUrl = baseUrl + encodeURIComponent(searchQuery) + '&type=repositories';
-        } else {
-            searchUrl = baseUrl + encodeURIComponent(searchQuery);
-        }
-        
-        try {
-            // Get or create the container
-            const container = createSearchContainer();
-            const browserContainer = document.getElementById('quicksearch-browser-container');
-            
-            // Clear any previous content
-            while (browserContainer.firstChild) {
-                browserContainer.removeChild(browserContainer.firstChild);
-            }
-            
-            // Make the container visible immediately 
-            container.classList.add('visible');
-            
-            // Close the URL bar using Zen Browser's approach
-            closeUrlBar(urlbar);
-            
-            // Add ESC key listener for this container
-            addEscKeyListener(container);
-            
-            // Try browser element first
-            const browserElement = createBrowserElement();
-            
-            if (browserElement) {
-                browserElement.id = 'quicksearch-content-frame';
-                browserElement.style.width = '100%';
-                browserElement.style.height = '100%';
-                browserElement.style.border = 'none';
-                browserElement.style.background = '#1e1f1f';
-                browserElement.style.overflow = 'hidden';
-                
-                browserContainer.appendChild(browserElement);
-                
-                const success = loadContentInBrowser(browserElement, searchUrl);
-                
-                if (success) {
-                    adjustContentScaling(browserElement);
-                    return;
-                } else {
-                    browserContainer.removeChild(browserElement);
+
+        getSearchURLFromInput(query).then(searchUrl => {
+            try {
+                // Get or create the container
+                const container = createSearchContainer();
+                const browserContainer = document.getElementById('quicksearch-browser-container');
+
+                // Clear any previous content
+                while (browserContainer.firstChild) {
+                    browserContainer.removeChild(browserContainer.firstChild);
+                }
+
+                // Make the container visible immediately
+                container.classList.add('visible');
+
+                // Close the URL bar using Zen Browser's approach
+                closeUrlBar(urlbar);
+
+                // Add ESC key listener for this container
+                addEscKeyListener(container);
+
+                // Try browser element first
+                const browserElement = createBrowserElement();
+
+                if (browserElement) {
+                    browserElement.id = 'quicksearch-content-frame';
+                    browserElement.style.width = '100%';
+                    browserElement.style.height = '100%';
+                    browserElement.style.border = 'none';
+                    browserElement.style.background = '#1e1f1f';
+                    browserElement.style.overflow = 'hidden';
+
+                    browserContainer.appendChild(browserElement);
+
+                    const success = loadContentInBrowser(browserElement, searchUrl);
+
+                    if (success) {
+                        adjustContentScaling(browserElement);
+                        return;
+                    } else {
+                        browserContainer.removeChild(browserElement);
+                    }
+                }
+
+                // Create an iframe as fallback if browser element failed
+                const iframe = document.createElement('iframe');
+                iframe.id = 'quicksearch-content-frame';
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                iframe.style.background = 'white';
+                iframe.style.overflow = 'hidden';
+
+                // Enhanced sandbox permissions for better rendering
+                iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation');
+                iframe.setAttribute('scrolling', 'no');
+                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                iframe.referrerPolicy = 'origin';
+
+                iframe.addEventListener('load', function() {
+                    setTimeout(() => {
+                        const containerWidth = browserContainer.clientWidth;
+                        const containerHeight = browserContainer.clientHeight;
+
+                        const scaleFactor = 0.95;
+                        iframe.style.width = `${Math.floor(containerWidth / scaleFactor)}px`;
+                        iframe.style.height = `${Math.floor(containerHeight / scaleFactor)}px`;
+                    }, 500);
+                });
+                // First append to container, then set source
+                browserContainer.appendChild(iframe);
+
+                // Small delay before setting source
+                setTimeout(() => {
+                    iframe.src = searchUrl;
+                }, 100);
+
+                // Apply content scaling
+                adjustContentScaling(iframe);
+
+            } catch (error) {
+                // Last resort: open in a new tab/window
+                try {
+                    gBrowser.addTab(searchUrl, {
+                        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal()
+                    });
+                } catch (e) {
+                    window.open(searchUrl, '_blank');
                 }
             }
-            
-            // Create an iframe as fallback if browser element failed
-            const iframe = document.createElement('iframe');                
-            iframe.id = 'quicksearch-content-frame';
-            iframe.style.width = '100%';
-            iframe.style.height = '100%';
-            iframe.style.border = 'none';
-            iframe.style.background = 'white';
-            iframe.style.overflow = 'hidden';
-            
-            // Enhanced sandbox permissions for better rendering
-            iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation');
-            iframe.setAttribute('scrolling', 'no');
-            iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-            iframe.referrerPolicy = 'origin';
-            
-            iframe.addEventListener('load', function() {
-                setTimeout(() => {
-                    const containerWidth = browserContainer.clientWidth;
-                    const containerHeight = browserContainer.clientHeight;
-                    
-                    const scaleFactor = 0.95;
-                    iframe.style.width = `${Math.floor(containerWidth / scaleFactor)}px`;
-                    iframe.style.height = `${Math.floor(containerHeight / scaleFactor)}px`;
-                }, 500);
-            });
-            // First append to container, then set source
-            browserContainer.appendChild(iframe);
-            
-            // Small delay before setting source
-            setTimeout(() => {
-                iframe.src = searchUrl;
-            }, 100);
-
-            // Apply content scaling
-            adjustContentScaling(iframe);
-            
-        } catch (error) {
-            // Last resort: open in a new tab/window
-            try {
-                gBrowser.addTab(searchUrl, {
-                    triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal()
-                });
-            } catch (e) {
-                window.open(searchUrl, '_blank');
-            }
-        }
+        });
     }
 
     function closeUrlBar(urlbar) {

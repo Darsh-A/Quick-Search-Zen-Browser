@@ -194,44 +194,6 @@
         document.head.appendChild(styleElement);
     };
 
-    const config = {
-        searchEngines: {
-            google: {
-                prefix: 'g:',
-                url: 'https://www.google.com/search?q='
-            },
-            bing: {
-                prefix: 'b:',
-                url: 'https://www.bing.com/search?q='
-            },
-            duckduckgo: {
-                prefix: 'd:',
-                url: 'https://duckduckgo.com/?q='
-            },
-            ecosia: {
-                prefix: 'e:',
-                url: 'https://www.ecosia.org/search?q='
-            },            
-            kagi: {
-                prefix: 'k:',
-                url: 'https://kagi.com/search?q='
-            },
-            stackoverflow: {
-                prefix: 'so:',
-                url: 'https://stackoverflow.com/search?q='
-            },
-            github: {
-                prefix: 'gh:',
-                url: 'https://github.com/search?q='
-            },
-            wikipedia: {
-                prefix: 'wiki:',
-                url: 'https://en.wikipedia.org/wiki/Special:Search?search='
-            }
-        },
-        defaultEngine: 'google'
-    };
-
     function ensureServicesAvailable() {
         if (typeof Services === 'undefined' && typeof Components !== 'undefined') {
             try {
@@ -325,6 +287,7 @@
     function init() {
         injectCSS();
         attachGlobalHotkey();
+
     }
     
     function attachGlobalHotkey() {
@@ -356,110 +319,98 @@
     }
 
     function handleQuickSearch(query) {
-        let searchEngine = config.defaultEngine;
-        let searchQuery = query;
-        
-        for (const [engine, engineData] of Object.entries(config.searchEngines)) {
-            if (query.startsWith(engineData.prefix)) {
-                searchEngine = engine;
-                searchQuery = query.substring(engineData.prefix.length).trim();
-                break;
-            }
-        }
-        
         ensureServicesAvailable();
-        
-        let searchUrl;
-        const baseUrl = config.searchEngines[searchEngine].url;
-        
-        if (searchEngine === 'google') {
-            searchUrl = baseUrl + encodeURIComponent(searchQuery);
-        } else if (searchEngine === 'stackoverflow') {
-            searchUrl = baseUrl + encodeURIComponent(searchQuery) + '&s=relevance';
-        } else if (searchEngine === 'github') {
-            searchUrl = baseUrl + encodeURIComponent(searchQuery) + '&type=repositories';
-        } else {
-            searchUrl = baseUrl + encodeURIComponent(searchQuery);
-        }
-        
-        try {
-            const container = document.getElementById('quicksearch-container');
-            const browserContainer = document.getElementById('quicksearch-browser-container');
-            
-            container.classList.add('expanded');
-            
-            const engineIndicator = document.getElementById('quicksearch-engine-indicator');
-            if (engineIndicator) {
-                engineIndicator.textContent = searchEngine.charAt(0).toUpperCase() + searchEngine.slice(1);
-            }
-            
-            while (browserContainer.firstChild) {
-                browserContainer.removeChild(browserContainer.firstChild);
-            }
-            
-            const browserElement = createBrowserElement();
-            
-            if (browserElement) {
-                browserElement.id = 'quicksearch-content-frame';
-                browserElement.style.width = '100%';
-                browserElement.style.height = '100%';
-                browserElement.style.border = 'none';
-                browserElement.style.background = '#1e1f1f';
-                browserElement.style.overflow = 'hidden';
+
+        getSearchURLFromInput(query).then(searchUrl => {
+            try {
+                const container = document.getElementById('quicksearch-container');
+                const browserContainer = document.getElementById('quicksearch-browser-container');
+
+                container.classList.add('expanded');
+
+                const engineIndicator = document.getElementById('quicksearch-engine-indicator');
+                if (engineIndicator) {
+                    Services.search.getEngines().then(engines => {
+                        let [prefix, ..._] = query.trim().split(/\s+/);
+                        let engine = engines.find(e =>
+                            e._definedAliases && e._definedAliases.includes(prefix)
+                        );
+
+                        if (!engine) {
+                            engine = Services.search.defaultEngine;
+                        }
+                        engineIndicator.textContent = engine.name;
+                    });
+                }
                 
-                browserContainer.appendChild(browserElement);
+                while (browserContainer.firstChild) {
+                    browserContainer.removeChild(browserContainer.firstChild);
+                }
                 
-                const success = loadContentInBrowser(browserElement, searchUrl);
+                const browserElement = createBrowserElement();
                 
-                if (success) {
-                    adjustContentScaling(browserElement);
-                    return;
-                } else {
-                    browserContainer.removeChild(browserElement);
+                if (browserElement) {
+                    browserElement.id = 'quicksearch-content-frame';
+                    browserElement.style.width = '100%';
+                    browserElement.style.height = '100%';
+                    browserElement.style.border = 'none';
+                    browserElement.style.background = '#1e1f1f';
+                    browserElement.style.overflow = 'hidden';
+                    
+                    browserContainer.appendChild(browserElement);
+                    
+                    const success = loadContentInBrowser(browserElement, searchUrl);
+                    
+                    if (success) {
+                        adjustContentScaling(browserElement);
+                        return;
+                    } else {
+                        browserContainer.removeChild(browserElement);
+                    }
+                }
+                
+                const iframe = document.createElement('iframe');                
+                iframe.id = 'quicksearch-content-frame';
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                iframe.style.background = '#1e1f1f';
+                iframe.style.overflow = 'hidden';
+                
+                iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation');
+                iframe.setAttribute('scrolling', 'no');
+                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                iframe.referrerPolicy = 'origin';
+                
+                iframe.addEventListener('load', function() {
+                    setTimeout(() => {
+                        const containerWidth = browserContainer.clientWidth;
+                        const containerHeight = browserContainer.clientHeight;
+                        
+                        const scaleFactor = 0.95;
+                        iframe.style.width = `${Math.floor(containerWidth / scaleFactor)}px`;
+                        iframe.style.height = `${Math.floor(containerHeight / scaleFactor)}px`;
+                    }, 500);
+                });
+                
+                browserContainer.appendChild(iframe);
+                
+                setTimeout(() => {
+                    iframe.src = searchUrl;
+                }, 100);
+
+                adjustContentScaling(iframe);
+                
+            } catch (error) {
+                try {
+                    gBrowser.addTab(searchUrl, {
+                        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal()
+                    });
+                } catch (e) {
+                    window.open(searchUrl, '_blank');
                 }
             }
-            
-            const iframe = document.createElement('iframe');                
-            iframe.id = 'quicksearch-content-frame';
-            iframe.style.width = '100%';
-            iframe.style.height = '100%';
-            iframe.style.border = 'none';
-            iframe.style.background = '#1e1f1f';
-            iframe.style.overflow = 'hidden';
-            
-            iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation');
-            iframe.setAttribute('scrolling', 'no');
-            iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-            iframe.referrerPolicy = 'origin';
-            
-            iframe.addEventListener('load', function() {
-                setTimeout(() => {
-                    const containerWidth = browserContainer.clientWidth;
-                    const containerHeight = browserContainer.clientHeight;
-                    
-                    const scaleFactor = 0.95;
-                    iframe.style.width = `${Math.floor(containerWidth / scaleFactor)}px`;
-                    iframe.style.height = `${Math.floor(containerHeight / scaleFactor)}px`;
-                }, 500);
-            });
-            
-            browserContainer.appendChild(iframe);
-            
-            setTimeout(() => {
-                iframe.src = searchUrl;
-            }, 100);
-
-            adjustContentScaling(iframe);
-            
-        } catch (error) {
-            try {
-                gBrowser.addTab(searchUrl, {
-                    triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal()
-                });
-            } catch (e) {
-                window.open(searchUrl, '_blank');
-            }
-        }
+        });
     }
 
     function addEscKeyListener(container) {
@@ -523,7 +474,7 @@
         const searchBar = document.createElement('input');
         searchBar.id = 'quicksearch-searchbar';
         searchBar.type = 'text';
-        searchBar.placeholder = 'Search (use prefixes: g:, b:, d:, e:, so:, gh:, wiki:)';
+        searchBar.placeholder = 'Search';
         searchBar.autocomplete = 'off';
         
         try {
@@ -551,22 +502,6 @@
             if (e.key === 'Enter' || (e.ctrlKey && e.key === "Enter")) {
                 e.preventDefault();
                 handleQuickSearch(searchBar.value);
-            }
-            
-            if (e.key !== 'Enter' && e.key !== 'Escape') {
-                setTimeout(() => {
-                    let currentEngine = config.defaultEngine;
-                    const query = searchBar.value;
-                    
-                    for (const [engine, engineData] of Object.entries(config.searchEngines)) {
-                        if (query.startsWith(engineData.prefix)) {
-                            currentEngine = engine;
-                            break;
-                        }
-                    }
-                    
-                    engineIndicator.textContent = currentEngine.charAt(0).toUpperCase() + currentEngine.slice(1);
-                }, 10);
             }
         });
         
@@ -615,5 +550,25 @@
         }
     }
 
+    function getSearchURLFromInput(input) {
+        return Services.search.getEngines().then(engines => {
+            let [prefix, ...rest] = input.trim().split(/\s+/);
+            let searchTerm = rest.join(" ");
+
+            // Try to match engine by alias (e.g., "@ddg")
+            let engine = engines.find(e =>
+                e._definedAliases && e._definedAliases.includes(prefix)
+            );
+
+            // If no alias matched, fallback to default engine
+            if (!engine) {
+                engine = Services.search.defaultEngine;
+                searchTerm = input; // Whole input is the term
+            }
+
+            let submission = engine.getSubmission(searchTerm);
+            return submission.uri.spec;
+        });
+    }
     setTimeout(init, 1000);
 })();
