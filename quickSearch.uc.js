@@ -1,82 +1,69 @@
 (function() {
     'use strict';
 
-    // Preferences management system
-    class QuickSearchPreferences {
-        constructor() {
-            this.prefs = Services.prefs;
-            this.prefBranch = "extensions.quicksearch.";
-            this.initDefaults();
-        }
+    // --- Preference Configuration (following AI Tab Groups pattern) ---
+    
+    // Preference Keys
+    const CONTEXT_MENU_ENABLED_PREF = "extensions.quicksearch.context_menu.enabled";
+    const CONTEXT_MENU_ENGINE_PREF = "extensions.quicksearch.context_menu.engine";
+    const CONTEXT_MENU_ACCESS_KEY_PREF = "extensions.quicksearch.context_menu.access_key";
+    const CONTAINER_POSITION_PREF = "extensions.quicksearch.container.position";
+    const CONTAINER_THEME_PREF = "extensions.quicksearch.container.theme";
+    const BEHAVIOR_ANIMATION_ENABLED_PREF = "extensions.quicksearch.behavior.animation_enabled";
+    const BEHAVIOR_REMEMBER_SIZE_PREF = "extensions.quicksearch.behavior.remember_size";
+    const BEHAVIOR_AUTO_FOCUS_PREF = "extensions.quicksearch.behavior.auto_focus";
+    const SHORTCUTS_TOGGLE_KEY_PREF = "extensions.quicksearch.shortcuts.toggle_key";
+    const SHORTCUTS_ESCAPE_CLOSES_PREF = "extensions.quicksearch.shortcuts.escape_closes";
 
-        initDefaults() {
-            const defaults = {
-                "context_menu.enabled": true,
-                "context_menu.engine": "@ddg",
-                "context_menu.access_key": "Q",
-                "container.width": 550,
-                "container.height": 300,
-                "container.position": "top-right",
-                "container.theme": "dark",
-                "behavior.scale_factor": 0.95,
-                "behavior.animation_enabled": true,
-                "behavior.remember_size": true,
-                "behavior.auto_focus": true,
-                "shortcuts.toggle_key": "Ctrl+Shift+Q",
-                "shortcuts.escape_closes": true
-            };
-
-            for (const [key, value] of Object.entries(defaults)) {
-                const prefName = this.prefBranch + key;
-                if (!this.prefs.prefHasUserValue(prefName)) {
-                    if (typeof value === 'boolean') {
-                        this.prefs.setBoolPref(prefName, value);
-                    } else if (typeof value === 'number') {
-                        this.prefs.setIntPref(prefName, value);
-                    } else {
-                        this.prefs.setStringPref(prefName, value);
-                    }
+    // Helper function to read preferences with fallbacks (like AI Tab Groups)
+    const getPref = (prefName, defaultValue = "") => {
+        try {
+            const prefService = Services.prefs;
+            if (prefService.prefHasUserValue(prefName)) {
+                switch (prefService.getPrefType(prefName)) {
+                    case prefService.PREF_STRING:
+                        return prefService.getStringPref(prefName);
+                    case prefService.PREF_INT:
+                        return prefService.getIntPref(prefName);
+                    case prefService.PREF_BOOL:
+                        return prefService.getBoolPref(prefName);
                 }
             }
+        } catch (e) {
+            console.warn(`QuickSearch: Failed to read preference ${prefName}:`, e);
         }
+        return defaultValue;
+    };
 
-        get(key) {
-            const prefName = this.prefBranch + key;
-            try {
-                const prefType = this.prefs.getPrefType(prefName);
-                switch (prefType) {
-                    case this.prefs.PREF_BOOL:
-                        return this.prefs.getBoolPref(prefName);
-                    case this.prefs.PREF_INT:
-                        return this.prefs.getIntPref(prefName);
-                    case this.prefs.PREF_STRING:
-                        return this.prefs.getStringPref(prefName);
-                    default:
-                        return null;
-                }
-            } catch (e) {
-                return null;
+    // Helper function to set preferences
+    const setPref = (prefName, value) => {
+        try {
+            const prefService = Services.prefs;
+            if (typeof value === 'boolean') {
+                prefService.setBoolPref(prefName, value);
+            } else if (typeof value === 'number') {
+                prefService.setIntPref(prefName, value);
+            } else {
+                prefService.setStringPref(prefName, value);
             }
+        } catch (e) {
+            console.warn(`QuickSearch: Failed to set preference ${prefName}:`, e);
         }
+    };
 
-        set(key, value) {
-            const prefName = this.prefBranch + key;
-            try {
-                if (typeof value === 'boolean') {
-                    this.prefs.setBoolPref(prefName, value);
-                } else if (typeof value === 'number') {
-                    this.prefs.setIntPref(prefName, value);
-                } else {
-                    this.prefs.setStringPref(prefName, value);
-                }
-            } catch (e) {
-                console.error('QuickSearch: Failed to set preference', key, e);
-            }
-        }
-    }
+    // Read preference values once at startup (like AI Tab Groups)
+    const CONTEXT_MENU_ENABLED = getPref(CONTEXT_MENU_ENABLED_PREF, true);
+    const CONTEXT_MENU_ENGINE = getPref(CONTEXT_MENU_ENGINE_PREF, "@ddg");
+    const CONTEXT_MENU_ACCESS_KEY = getPref(CONTEXT_MENU_ACCESS_KEY_PREF, "Q");
+    const CONTAINER_POSITION = getPref(CONTAINER_POSITION_PREF, "top-right");
+    const CONTAINER_THEME = getPref(CONTAINER_THEME_PREF, "dark");
+    const BEHAVIOR_ANIMATION_ENABLED = getPref(BEHAVIOR_ANIMATION_ENABLED_PREF, true);
+    const BEHAVIOR_REMEMBER_SIZE = getPref(BEHAVIOR_REMEMBER_SIZE_PREF, true);
+    const BEHAVIOR_AUTO_FOCUS = getPref(BEHAVIOR_AUTO_FOCUS_PREF, true);
+    const SHORTCUTS_TOGGLE_KEY = getPref(SHORTCUTS_TOGGLE_KEY_PREF, "Ctrl+Shift+Q");
+    const SHORTCUTS_ESCAPE_CLOSES = getPref(SHORTCUTS_ESCAPE_CLOSES_PREF, true);
 
-    // Initialize preferences
-    let quickSearchPrefs;
+    // --- End Preference Configuration ---
     
     // Create and inject CSS for the search container
     const injectCSS = (theme = 'dark', position = 'top-right', animationsEnabled = true) => {
@@ -298,16 +285,12 @@
         }
     }
 
-    // Function to adjust content scaling to fit container
-    function adjustContentScaling(element) {
+    // Function to style content in iframe
+    function styleContentFrame(element) {
         if (!element) return;
         
-        element.addEventListener('load', function() {
-            const scaleFactor = quickSearchPrefs ? quickSearchPrefs.get('behavior.scale_factor') : 0.95;
-            element.style.transform = `scale(${scaleFactor})`;
-            element.style.transformOrigin = '0 0';
-            
-            if (element.tagName.toLowerCase() === 'iframe') {
+        if (element.tagName.toLowerCase() === 'iframe') {
+            element.addEventListener('load', function() {
                 setTimeout(() => {
                     try {
                         if (element.contentDocument) {
@@ -343,32 +326,21 @@
                                 }
                             `;
                             element.contentDocument.head.appendChild(style);
-                            
-                            const mainContent = element.contentDocument.body;
-                            if (mainContent) {
-                                mainContent.style.transformOrigin = '0 0';
-                            }
                         }
                     } catch (e) {
                         // Cross-origin restrictions might prevent this
                     }
                 }, 500);
-            }
-        });
+            });
+        }
     }
 
     // Wait for browser to be fully initialized
     function init() {
         if (!ensureServicesAvailable()) return;
         
-        // Initialize preferences
-        quickSearchPrefs = new QuickSearchPreferences();
-        
         // Inject CSS with user preferences
-        const theme = quickSearchPrefs.get('container.theme');
-        const position = quickSearchPrefs.get('container.position');
-        const animationsEnabled = quickSearchPrefs.get('behavior.animation_enabled');
-        injectCSS(theme, position, animationsEnabled);
+        injectCSS(CONTAINER_THEME, CONTAINER_POSITION, BEHAVIOR_ANIMATION_ENABLED);
         
         let urlbar = null;
         if (gBrowser && gBrowser.urlbar) {
@@ -384,8 +356,7 @@
         }
         
         // Add context menu item if enabled
-        const contextMenuEnabled = quickSearchPrefs.get('context_menu.enabled');
-        if (contextMenuEnabled) {
+        if (CONTEXT_MENU_ENABLED) {
             addContextMenuItem();
         }
 
@@ -529,7 +500,7 @@
     function handleQuickSearch(query, urlbar, fromContextMenu = false) {
         ensureServicesAvailable();
 
-        const contextMenuEngine = quickSearchPrefs ? quickSearchPrefs.get('context_menu.engine') : '@ddg';
+        const contextMenuEngine = CONTEXT_MENU_ENGINE;
         const searchPromise = fromContextMenu ? 
             getSearchURLWithEngine(query, contextMenuEngine) : 
             getSearchURLFromInput(query);
@@ -570,7 +541,7 @@
                     const success = loadContentInBrowser(browserElement, searchUrl);
 
                     if (success) {
-                        adjustContentScaling(browserElement);
+                        styleContentFrame(browserElement);
                         return;
                     } else {
                         browserContainer.removeChild(browserElement);
@@ -592,16 +563,7 @@
                 iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
                 iframe.referrerPolicy = 'origin';
 
-                iframe.addEventListener('load', function() {
-                    setTimeout(() => {
-                        const containerWidth = browserContainer.clientWidth;
-                        const containerHeight = browserContainer.clientHeight;
-
-                        const scaleFactor = quickSearchPrefs ? quickSearchPrefs.get('behavior.scale_factor') : 0.95;
-                        iframe.style.width = `${Math.floor(containerWidth / scaleFactor)}px`;
-                        iframe.style.height = `${Math.floor(containerHeight / scaleFactor)}px`;
-                    }, 500);
-                });
+                // Remove the load event listener that adjusted dimensions
                 // First append to container, then set source
                 browserContainer.appendChild(iframe);
 
@@ -610,8 +572,8 @@
                     iframe.src = searchUrl;
                 }, 100);
 
-                // Apply content scaling
-                adjustContentScaling(iframe);
+                // Apply content styling
+                styleContentFrame(iframe);
 
             } catch (error) {
                 // Last resort: open in a new tab/window
@@ -648,7 +610,7 @@
         
         container._escKeyListener = function(event) {
             if (event.key === 'Escape') {
-                const escapeCloses = quickSearchPrefs ? quickSearchPrefs.get('shortcuts.escape_closes') : true;
+                const escapeCloses = SHORTCUTS_ESCAPE_CLOSES;
                 if (escapeCloses) {
                     event.preventDefault();
                     event.stopPropagation();
@@ -664,7 +626,7 @@
     // Add keyboard shortcuts
     function addKeyboardShortcuts() {
         function handleGlobalShortcuts(event) {
-            const toggleKey = quickSearchPrefs ? quickSearchPrefs.get('shortcuts.toggle_key') : 'Ctrl+Shift+Q';
+            const toggleKey = SHORTCUTS_TOGGLE_KEY;
             
             // Parse the toggle key combination
             const keyParts = toggleKey.split('+').map(k => k.trim());
@@ -724,7 +686,7 @@
                     }
                     
                     // Auto-focus if enabled
-                    const autoFocus = quickSearchPrefs ? quickSearchPrefs.get('behavior.auto_focus') : true;
+                    const autoFocus = BEHAVIOR_AUTO_FOCUS;
                     if (autoFocus) {
                         setTimeout(() => searchInput.focus(), 100);
                     }
@@ -742,7 +704,7 @@
         if (!container) container = document.getElementById('quicksearch-container');
         if (!container) return;
         
-        const animationsEnabled = quickSearchPrefs ? quickSearchPrefs.get('behavior.animation_enabled') : true;
+        const animationsEnabled = BEHAVIOR_ANIMATION_ENABLED;
         const animationDuration = animationsEnabled ? 300 : 0;
         
         if (animationsEnabled) {
@@ -776,48 +738,15 @@
         }, animationDuration);
     }
     
-    function saveContainerDimensions(width, height) {
-        const rememberSize = quickSearchPrefs ? quickSearchPrefs.get('behavior.remember_size') : true;
-        
-        if (rememberSize && quickSearchPrefs) {
-            quickSearchPrefs.set('container.width', width);
-            quickSearchPrefs.set('container.height', height);
-        } else if (rememberSize) {
-            // Fallback to legacy method
-            const prefs = Services.prefs;
-            const prefNameWidth = "quicksearch.container.width";
-            const prefNameHeight = "quicksearch.container.height";
-            try {
-                prefs.setIntPref(prefNameWidth, width);
-                prefs.setIntPref(prefNameHeight, height);
-            } catch (e) {
-                console.error('QuickSearch: Failed to save dimensions', e);
-            }
-        }
+        function saveContainerDimensions(width, height) {
+        // Container dimensions are no longer saved - using fixed default size
+        console.log('QuickSearch: Container dimensions not saved (width/height settings removed)');
     }
 
-    function loadContainerDimensions() {
-        let width = quickSearchPrefs ? quickSearchPrefs.get('container.width') : 550;
-        let height = quickSearchPrefs ? quickSearchPrefs.get('container.height') : 300;
-        
-        // Check if we should remember size
-        const rememberSize = quickSearchPrefs ? quickSearchPrefs.get('behavior.remember_size') : true;
-        
-        if (rememberSize) {
-            // Load from legacy preferences if quickSearchPrefs not available
-            if (!quickSearchPrefs) {
-                const prefs = Services.prefs;
-                const prefNameWidth = "quicksearch.container.width";
-                const prefNameHeight = "quicksearch.container.height";
-                
-                try {
-                    width = prefs.getIntPref(prefNameWidth);
-                    height = prefs.getIntPref(prefNameHeight);
-                } catch (e) {
-                    // Use default values if preferences are not set
-                }
-            }
-        }
+        function loadContainerDimensions() {
+        // Use fixed default dimensions
+        const width = 550;
+        const height = 300;
 
         const container = document.getElementById('quicksearch-container');
         if (container) {
@@ -950,7 +879,7 @@
             return;
         }
 
-        const accessKey = quickSearchPrefs ? quickSearchPrefs.get('context_menu.access_key') : 'Q';
+        const accessKey = CONTEXT_MENU_ACCESS_KEY;
         const menuItem = document.createXULElement("menuitem");
         menuItem.id = "quicksearch-context-menuitem";
         menuItem.setAttribute("label", "Open in Quick Search");

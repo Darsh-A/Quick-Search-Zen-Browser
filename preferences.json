@@ -4,7 +4,6 @@
     "label": "Enable Context Menu Integration",
     "type": "boolean",
     "placeholder": false,
-    "value": "boolean",
     "default": true,
     "description": "Add Quick Search option to the right-click context menu"
   },
@@ -13,7 +12,6 @@
     "label": "Default Context Menu Search Engine",
     "type": "string",
     "placeholder": "Enter search engine (@ddg, @google, @bing, etc.)",
-    "value": "string",
     "default": "@ddg",
     "description": "Search engine to use when searching selected text from context menu",
     "conditions": [
@@ -25,7 +23,6 @@
     "label": "Context Menu Access Key",
     "type": "string",
     "placeholder": "Enter single letter",
-    "value": "string",
     "default": "Q",
     "description": "Keyboard shortcut letter for context menu item",
     "conditions": [
@@ -37,34 +34,12 @@
     "label": "Container Appearance",
     "id": "appearance-separator"
   },
-  {
-    "property": "extensions.quicksearch.container.width",
-    "label": "Default Container Width (px)",
-    "type": "number",
-    "placeholder": "Width in pixels",
-    "value": "number",
-    "default": 550,
-    "min": 200,
-    "max": 1200,
-    "description": "Initial width of the Quick Search popup container"
-  },
-  {
-    "property": "extensions.quicksearch.container.height",
-    "label": "Default Container Height (px)",
-    "type": "number",
-    "placeholder": "Height in pixels",
-    "value": "number",
-    "default": 300,
-    "min": 150,
-    "max": 800,
-    "description": "Initial height of the Quick Search popup container"
-  },
+
   {
     "property": "extensions.quicksearch.container.position",
     "label": "Container Position",
     "type": "dropdown",
     "placeholder": false,
-    "value": "string",
     "default": "top-right",
     "options": [
       {
@@ -95,7 +70,6 @@
     "label": "Container Theme",
     "type": "dropdown",
     "placeholder": false,
-    "value": "string",
     "default": "dark",
     "options": [
       {
@@ -118,24 +92,12 @@
     "label": "Behavior Settings",
     "id": "behavior-separator"
   },
-  {
-    "property": "extensions.quicksearch.behavior.scale_factor",
-    "label": "Content Scale Factor",
-    "type": "number",
-    "placeholder": "Scale factor (0.1 - 2.0)",
-    "value": "number",
-    "default": 0.95,
-    "min": 0.1,
-    "max": 2.0,
-    "step": 0.05,
-    "description": "Scale factor for content displayed in the container"
-  },
+
   {
     "property": "extensions.quicksearch.behavior.animation_enabled",
     "label": "Enable Animations",
     "type": "boolean",
     "placeholder": false,
-    "value": "boolean",
     "default": true,
     "description": "Enable slide-in/slide-out animations for the container"
   },
@@ -144,7 +106,6 @@
     "label": "Remember Container Size",
     "type": "boolean",
     "placeholder": false,
-    "value": "boolean",
     "default": true,
     "description": "Remember and restore the last used container dimensions"
   },
@@ -153,7 +114,6 @@
     "label": "Auto Focus Search Bar",
     "type": "boolean",
     "placeholder": false,
-    "value": "boolean",
     "default": true,
     "description": "Automatically focus the search input when Quick Search opens"
   },
@@ -167,7 +127,6 @@
     "label": "Toggle Quick Search Shortcut",
     "type": "string",
     "placeholder": "e.g., Ctrl+Shift+F",
-    "value": "string",
     "default": "Ctrl+Shift+Q",
     "description": "Keyboard shortcut to open/close Quick Search"
   },
@@ -176,7 +135,6 @@
     "label": "Escape Key Closes Container",
     "type": "boolean",
     "placeholder": false,
-    "value": "boolean",
     "default": true,
     "description": "Allow Escape key to close the Quick Search container"
   }
