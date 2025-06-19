@@ -31,45 +31,15 @@
                 }
             }
             
-            @keyframes quicksearchExpand {
-                0% {
-                    height: 56px;
-                }
-                60% {
-                    height: 370px;
-                }
-                80% {
-                    height: 330px;
-                }
-                100% {
-                    height: 340px;
-                }
-            }
-            
-            @keyframes quicksearchCollapseAndSlideOut {
-                0% {
-                    transform: translateY(0);
-                    height: 340px;
-                    opacity: 1;
-                }
-                30% {
-                    height: 56px;
-                    transform: translateY(0);
-                    opacity: 0.9;
-                }
-                100% {
-                    height: 56px;
-                    transform: translateY(-100%);
-                    opacity: 0;
-                }
-            }
-            
             #quicksearch-container {
                 position: fixed;
                 top: 10px;
                 right: 10px;
                 width: 550px;
-                height: 56px;
+                min-width: 200px;
+                min-height: 150px;
+                max-width: 70vw;
+                max-height: 70vh;
                 background-color: #1e1f1f;
                 border-radius: 8px;
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -80,7 +50,6 @@
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                 opacity: 0;
                 border: 1px solid #e0e0e0;
-                transition: height 0.3s ease;
             }
             
             #quicksearch-container.visible {
@@ -91,15 +60,6 @@
             
             #quicksearch-container.closing {
                 animation: quicksearchSlideOut 0.3s ease-in forwards;
-            }
-            
-            #quicksearch-container.expanded.closing {
-                animation: quicksearchCollapseAndSlideOut 0.5s ease-in forwards;
-            }
-            
-            #quicksearch-container.expanded {
-                animation: quicksearchExpand 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-                height: 340px;
             }
             
             #quicksearch-searchbar-container {
@@ -184,6 +144,21 @@
                 padding: 0 8px;
                 font-size: 12px;
                 color: #aaa;
+            }
+            
+            #quicksearch-resizer {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                width: 0;
+                height: 0;
+                background:transparent;
+                border-style: solid;
+                border-width: 0 16px 16px 0;
+                border-color: transparent #fff transparent transparent;
+                cursor: sw-resize;
+                z-index: 10001;
+                transform: rotate(180deg);
             }
             .z-index: 10000;
         `;
@@ -287,7 +262,7 @@
     function init() {
         injectCSS();
         attachGlobalHotkey();
-
+        loadContainerDimensions();
     }
     
     function attachGlobalHotkey() {
@@ -306,7 +281,6 @@
     function showQuickSearchContainer() {
         const container = createSearchContainer();
         container.classList.add('visible');
-        container.classList.remove('expanded');
         
         const searchBar = document.getElementById('quicksearch-searchbar');
         if (searchBar) {
@@ -460,12 +434,41 @@
         }, animationDuration);
     }
 
+    const prefs = Services.prefs;
+    const prefNameWidth = "quicksearch.container.width";
+    const prefNameHeight = "quicksearch.container.height";
+
+    function saveContainerDimensions(width, height) {
+        prefs.setIntPref(prefNameWidth, width);
+        prefs.setIntPref(prefNameHeight, height);
+    }
+
+    function loadContainerDimensions() {
+        let width = 550;
+        let height = 300;
+
+        try {
+            width = prefs.getIntPref(prefNameWidth);
+            height = prefs.getIntPref(prefNameHeight);
+        } catch (e) {
+            // Use default values if preferences are not set
+        }
+
+        const container = document.getElementById('quicksearch-container');
+        if (container) {
+            container.style.width = `${width}px`;
+            container.style.height = `${height}px`;
+        }
+    }
+
     function createSearchContainer() {
-        if (document.getElementById('quicksearch-container')) {
-            return document.getElementById('quicksearch-container');
+        let container = document.getElementById('quicksearch-container');
+        if (container) {
+             loadContainerDimensions();
+            return container;
         }
         
-        const container = document.createElement('div');
+        container = document.createElement('div');
         container.id = 'quicksearch-container';
         
         const searchBarContainer = document.createElement('div');
@@ -516,11 +519,58 @@
         browserContainer.style.position = 'relative';
         browserContainer.style.overflow = 'hidden';
         
+        // Create resizer element
+        const resizer = document.createElement('div');
+        resizer.id = 'quicksearch-resizer';
+        
+        let isResizing = false;
+        let startX, startY, startWidth, startHeight;
+        
+        resizer.addEventListener('mousedown', function(e) {
+            isResizing = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startWidth = container.offsetWidth;
+            startHeight = container.offsetHeight;
+            document.addEventListener('mousemove', doResize);
+            document.addEventListener('mouseup', stopResize);
+        });
+        
+        function doResize(e) {
+            if (!isResizing) return;
+            
+            let width = startWidth - (e.clientX - startX);
+            let height = startHeight - (startY - e.clientY);
+            
+            // Enforce minimum dimensions
+            width = Math.max(width, 200);
+            height = Math.max(height, 150);
+
+            // Enforce maximum dimensions
+            width = Math.min(width, window.innerWidth * 0.7);
+            height = Math.min(height, window.innerHeight * 0.7);
+            
+            container.style.width = width + 'px';
+            container.style.height = height + 'px';
+        }
+        
+        function stopResize() {
+            if (!isResizing) return;
+            
+            isResizing = false;
+            document.removeEventListener('mousemove', doResize);
+            document.removeEventListener('mouseup', stopResize);
+            
+            // Save the new dimensions
+            saveContainerDimensions(container.offsetWidth, container.offsetHeight);
+        }
+        
         container.appendChild(searchBarContainer);
         container.appendChild(browserContainer);
+        container.appendChild(resizer);
         
         document.body.appendChild(container);
-        
+         loadContainerDimensions();
         return container;
     }
 
