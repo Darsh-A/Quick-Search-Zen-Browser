@@ -6,7 +6,7 @@
     "js": true,
     "readme": "https://raw.githubusercontent.com/Darsh-A/Quick-Search-Zen-Browser/refs/heads/main/README.md",
     "author": "Darsh A",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "tags": [
         "sine",
         "Quick Search",
@@ -15,6 +15,6 @@
         "Darsh A"
     ],
     "createdAt": "2025-05-26",
-    "updatedAt": "2025-05-26",
+    "updatedAt": "2025-06-19",
     "fork": ["zen"]
 }
