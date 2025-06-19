@@ -1,5 +1,9 @@
 (function() {
     'use strict';
+
+    const ADD_CONTEXT_MENU_ITEM = true;
+    const CONTEXT_MENU_ENGINE = "@ddg";
+    const CONTEXT_ACCESS_KEY = "Q";
     
     const injectCSS = () => {
         const css = `
@@ -263,6 +267,11 @@
         injectCSS();
         attachGlobalHotkey();
         loadContainerDimensions();
+        
+        // Add context menu item if enabled
+        if (ADD_CONTEXT_MENU_ITEM) {
+            addContextMenuItem();
+        }
     }
     
     function attachGlobalHotkey() {
@@ -292,10 +301,14 @@
         addEscKeyListener(container);
     }
 
-    function handleQuickSearch(query) {
+    function handleQuickSearch(query, fromContextMenu = false) {
         ensureServicesAvailable();
 
-        getSearchURLFromInput(query).then(searchUrl => {
+        const searchPromise = fromContextMenu ? 
+            getSearchURLWithEngine(query, CONTEXT_MENU_ENGINE) : 
+            getSearchURLFromInput(query);
+
+        searchPromise.then(searchUrl => {
             try {
                 const container = document.getElementById('quicksearch-container');
                 const browserContainer = document.getElementById('quicksearch-browser-container');
@@ -620,5 +633,99 @@
             return submission.uri.spec;
         });
     }
+
+    // Function to get search URL with a specific engine
+    async function getSearchURLWithEngine(query, engineName) {
+        let engines = await Services.search.getEngines();
+        let engine = engines.find(e => e.name === engineName || (e._definedAliases && e._definedAliases.includes(engineName)));
+        if (!engine) engine = await Services.search.getDefault();
+        let searchTerm = query.trim();
+        let submission = engine.getSubmission(searchTerm);
+        return submission.uri.spec;
+    }
+
+    // Function to add context menu item
+    function addContextMenuItem() {
+        const contextMenu = document.getElementById("contentAreaContextMenu");
+        if (!contextMenu) {
+            setTimeout(addContextMenuItem, 500);
+            return;
+        }
+
+        if (document.getElementById("quicksearch-context-menuitem")) {
+            return;
+        }
+
+        const menuItem = document.createXULElement("menuitem");
+        menuItem.id = "quicksearch-context-menuitem";
+        menuItem.setAttribute("label", "Open in Quick Search");
+        menuItem.setAttribute("accesskey", CONTEXT_ACCESS_KEY);
+        
+        menuItem.addEventListener("command", handleContextMenuClick);
+        
+        const searchSelectItem = contextMenu.querySelector("#context-searchselect");
+        
+        if (searchSelectItem) {
+            // Insert right after the searchselect item
+            if (searchSelectItem.nextSibling) {
+                contextMenu.insertBefore(menuItem, searchSelectItem.nextSibling);
+            } else {
+                contextMenu.appendChild(menuItem);
+            }
+        } else {
+            // Fallback: insert after context-sep-redo separator
+            const redoSeparator = contextMenu.querySelector("#context-sep-redo");
+            if (redoSeparator) {
+                if (redoSeparator.nextSibling) {
+                    contextMenu.insertBefore(menuItem, redoSeparator.nextSibling);
+                } else {
+                    contextMenu.appendChild(menuItem);
+                }
+            } else {
+                // Final fallback: don't add the menu item if neither element is found
+                return;
+            }
+        }
+
+        contextMenu.addEventListener("popupshowing", updateContextMenuVisibility);
+    }
+
+    function handleContextMenuClick() {
+        let selectedText = "";
+        
+
+        if (typeof gContextMenu !== 'undefined' && gContextMenu.selectedText) {
+            selectedText = gContextMenu.selectedText.trim();
+        } else {
+            console.error("Error getting selected text:", e);
+        }
+        
+        if (selectedText && selectedText.trim()) {
+            // Show the container first, then perform the search
+            showQuickSearchContainer();
+            setTimeout(() => {
+                handleQuickSearch(selectedText.trim(), true);
+            }, 100);
+        }
+    }
+
+    function updateContextMenuVisibility(event) {
+        const menuItem = document.getElementById("quicksearch-context-menuitem");
+        if (!menuItem) {
+            return;
+        }
+        let hasSelection = false;
+        let selectedText = "";
+
+        if (typeof gContextMenu !== 'undefined') {
+            hasSelection = gContextMenu.isTextSelected === true;
+            if (hasSelection && gContextMenu.selectedText) {
+                selectedText = gContextMenu.selectedText.trim();
+            }
+        }
+        
+        menuItem.hidden = !hasSelection;
+    }
+
     setTimeout(init, 1000);
 })();

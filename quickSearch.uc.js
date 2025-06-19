@@ -1,48 +1,180 @@
 (function() {
     'use strict';
+
+    // Preferences management system
+    class QuickSearchPreferences {
+        constructor() {
+            this.prefs = Services.prefs;
+            this.prefBranch = "extensions.quicksearch.";
+            this.initDefaults();
+        }
+
+        initDefaults() {
+            const defaults = {
+                "context_menu.enabled": true,
+                "context_menu.engine": "@ddg",
+                "context_menu.access_key": "Q",
+                "container.width": 550,
+                "container.height": 300,
+                "container.position": "top-right",
+                "container.theme": "dark",
+                "behavior.scale_factor": 0.95,
+                "behavior.animation_enabled": true,
+                "behavior.remember_size": true,
+                "behavior.auto_focus": true,
+                "shortcuts.toggle_key": "Ctrl+Shift+Q",
+                "shortcuts.escape_closes": true
+            };
+
+            for (const [key, value] of Object.entries(defaults)) {
+                const prefName = this.prefBranch + key;
+                if (!this.prefs.prefHasUserValue(prefName)) {
+                    if (typeof value === 'boolean') {
+                        this.prefs.setBoolPref(prefName, value);
+                    } else if (typeof value === 'number') {
+                        this.prefs.setIntPref(prefName, value);
+                    } else {
+                        this.prefs.setStringPref(prefName, value);
+                    }
+                }
+            }
+        }
+
+        get(key) {
+            const prefName = this.prefBranch + key;
+            try {
+                const prefType = this.prefs.getPrefType(prefName);
+                switch (prefType) {
+                    case this.prefs.PREF_BOOL:
+                        return this.prefs.getBoolPref(prefName);
+                    case this.prefs.PREF_INT:
+                        return this.prefs.getIntPref(prefName);
+                    case this.prefs.PREF_STRING:
+                        return this.prefs.getStringPref(prefName);
+                    default:
+                        return null;
+                }
+            } catch (e) {
+                return null;
+            }
+        }
+
+        set(key, value) {
+            const prefName = this.prefBranch + key;
+            try {
+                if (typeof value === 'boolean') {
+                    this.prefs.setBoolPref(prefName, value);
+                } else if (typeof value === 'number') {
+                    this.prefs.setIntPref(prefName, value);
+                } else {
+                    this.prefs.setStringPref(prefName, value);
+                }
+            } catch (e) {
+                console.error('QuickSearch: Failed to set preference', key, e);
+            }
+        }
+    }
+
+    // Initialize preferences
+    let quickSearchPrefs;
     
     // Create and inject CSS for the search container
-    const injectCSS = () => {
+    const injectCSS = (theme = 'dark', position = 'top-right', animationsEnabled = true) => {
+        // Theme configurations
+        const themes = {
+            dark: {
+                containerBg: '#1e1f1f',
+                containerBorder: '#404040',
+                browserBg: '#2a2a2a',
+                closeBtnBg: 'rgba(240, 240, 240, 0.8)',
+                closeBtnColor: '#555',
+                closeBtnHoverBg: 'rgba(220, 220, 220, 0.9)',
+                closeBtnHoverColor: '#000'
+            },
+            light: {
+                containerBg: '#ffffff',
+                containerBorder: '#e0e0e0',
+                browserBg: '#f9f9f9',
+                closeBtnBg: 'rgba(60, 60, 60, 0.8)',
+                closeBtnColor: '#fff',
+                closeBtnHoverBg: 'rgba(40, 40, 40, 0.9)',
+                closeBtnHoverColor: '#fff'
+            },
+            auto: window.matchMedia('(prefers-color-scheme: dark)').matches ? {
+                containerBg: '#1e1f1f',
+                containerBorder: '#404040',
+                browserBg: '#2a2a2a',
+                closeBtnBg: 'rgba(240, 240, 240, 0.8)',
+                closeBtnColor: '#555',
+                closeBtnHoverBg: 'rgba(220, 220, 220, 0.9)',
+                closeBtnHoverColor: '#000'
+            } : {
+                containerBg: '#ffffff',
+                containerBorder: '#e0e0e0',
+                browserBg: '#f9f9f9',
+                closeBtnBg: 'rgba(60, 60, 60, 0.8)',
+                closeBtnColor: '#fff',
+                closeBtnHoverBg: 'rgba(40, 40, 40, 0.9)',
+                closeBtnHoverColor: '#fff'
+            }
+        };
+
+        const currentTheme = themes[theme] || themes.dark;
+
+        // Position configurations
+        const positions = {
+            'top-right': { top: '10px', right: '10px', left: 'auto', bottom: 'auto' },
+            'top-left': { top: '10px', left: '10px', right: 'auto', bottom: 'auto' },
+            'center': { top: '50%', left: '50%', right: 'auto', bottom: 'auto', transform: 'translate(-50%, -50%)' },
+            'bottom-right': { bottom: '10px', right: '10px', top: 'auto', left: 'auto' },
+            'bottom-left': { bottom: '10px', left: '10px', top: 'auto', right: 'auto' }
+        };
+
+        const currentPosition = positions[position] || positions['top-right'];
+
         const css = `
             @keyframes quicksearchSlideIn {
                 0% {
-                    transform: translateY(-100%);
+                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(0.8)' : 'translateY(-100%)'};
                     opacity: 0;
                 }
                 60% {
-                    transform: translateY(5%);
+                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(1.05)' : 'translateY(5%)'};
                     opacity: 1;
                 }
                 80% {
-                    transform: translateY(-2%);
+                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(0.98)' : 'translateY(-2%)'};
                 }
                 100% {
-                    transform: translateY(0);
+                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(1)' : 'translateY(0)'};
                 }
             }
             
             @keyframes quicksearchSlideOut {
                 0% {
-                    transform: translateY(0);
+                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(1)' : 'translateY(0)'};
                     opacity: 1;
                 }
                 100% {
-                    transform: translateY(-100%);
+                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(0.8)' : 'translateY(-100%)'};
                     opacity: 0;
                 }
             }
             
             #quicksearch-container {
                 position: fixed;
-                top: 10px;
-                right: 10px;
+                top: ${currentPosition.top};
+                right: ${currentPosition.right};
+                left: ${currentPosition.left};
+                bottom: ${currentPosition.bottom};
+                ${currentPosition.transform ? `transform: ${currentPosition.transform};` : ''}
                 width: 550px;
                 min-width: 200px;
                 height: 300px;
                 min-height: 150px;
                 max-width: 70vw;
                 max-height: 70vh;
-                background-color: #1e1f1f;
+                background-color: ${currentTheme.containerBg};
                 border-radius: 8px;
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
                 z-index: 9999;
@@ -51,24 +183,24 @@
                 overflow: hidden;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                 opacity: 0;
-                border: 1px solid #e0e0e0;
+                border: 1px solid ${currentTheme.containerBorder};
             }
             
             #quicksearch-container.visible {
                 display: flex;
                 opacity: 1;
-                animation: quicksearchSlideIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+                ${animationsEnabled ? 'animation: quicksearchSlideIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;' : ''}
             }
             
             #quicksearch-container.closing {
-                animation: quicksearchSlideOut 0.3s ease-in forwards;
+                ${animationsEnabled ? 'animation: quicksearchSlideOut 0.3s ease-in forwards;' : ''}
             }
             
             #quicksearch-browser-container {
                 flex: 1;
                 width: 100%;
                 border: none;
-                background-color: #f9f9f9;
+                background-color: ${currentTheme.browserBg};
                 position: relative;
                 overflow: hidden;
             }
@@ -89,14 +221,14 @@
                 right: 8px;
                 width: 24px;
                 height: 24px;
-                background-color: rgba(240, 240, 240, 0.8);
+                background-color: ${currentTheme.closeBtnBg};
                 border: none;
                 border-radius: 50%;
                 font-size: 14px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color: #555;
+                color: ${currentTheme.closeBtnColor};
                 cursor: pointer;
                 z-index: 10000;
                 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
@@ -104,9 +236,9 @@
             }
             
             .quicksearch-close-button:hover {
-                background-color: rgba(220, 220, 220, 0.9);
+                background-color: ${currentTheme.closeBtnHoverBg};
                 transform: scale(1.1);
-                color: #000;
+                color: ${currentTheme.closeBtnHoverColor};
             }
             
             #quicksearch-resizer {
@@ -171,7 +303,7 @@
         if (!element) return;
         
         element.addEventListener('load', function() {
-            const scaleFactor = 0.95;
+            const scaleFactor = quickSearchPrefs ? quickSearchPrefs.get('behavior.scale_factor') : 0.95;
             element.style.transform = `scale(${scaleFactor})`;
             element.style.transformOrigin = '0 0';
             
@@ -227,7 +359,16 @@
 
     // Wait for browser to be fully initialized
     function init() {
-        injectCSS();
+        if (!ensureServicesAvailable()) return;
+        
+        // Initialize preferences
+        quickSearchPrefs = new QuickSearchPreferences();
+        
+        // Inject CSS with user preferences
+        const theme = quickSearchPrefs.get('container.theme');
+        const position = quickSearchPrefs.get('container.position');
+        const animationsEnabled = quickSearchPrefs.get('behavior.animation_enabled');
+        injectCSS(theme, position, animationsEnabled);
         
         let urlbar = null;
         if (gBrowser && gBrowser.urlbar) {
@@ -241,6 +382,15 @@
         } else {
             setTimeout(init, 1000);
         }
+        
+        // Add context menu item if enabled
+        const contextMenuEnabled = quickSearchPrefs.get('context_menu.enabled');
+        if (contextMenuEnabled) {
+            addContextMenuItem();
+        }
+
+        // Add keyboard shortcut listener
+        addKeyboardShortcuts();
     }
     
     // Attach event listeners to the URL bar
@@ -329,6 +479,18 @@
           let submission = engine.getSubmission(searchTerm);
           return submission.uri.spec;
       }
+
+    // Function to get search URL with a specific engine
+    async function getSearchURLWithEngine(query, engineName) {
+        let engines = await Services.search.getEngines();
+        let engine = engines.find(e => e.name === engineName || (e._definedAliases && e._definedAliases.includes(engineName)));
+        console.log(engines);
+        if (!engine) engine = await Services.search.getDefault();
+
+        let searchTerm = query.trim();
+        let submission = engine.getSubmission(searchTerm);
+        return submission.uri.spec;
+    }
     
 
     // Function to open a URL in Zen Browser's Glance mode
@@ -364,10 +526,15 @@
     }
 
     // Process the search query and show in in-browser container
-    function handleQuickSearch(query, urlbar) {
+    function handleQuickSearch(query, urlbar, fromContextMenu = false) {
         ensureServicesAvailable();
 
-        getSearchURLFromInput(query).then(searchUrl => {
+        const contextMenuEngine = quickSearchPrefs ? quickSearchPrefs.get('context_menu.engine') : '@ddg';
+        const searchPromise = fromContextMenu ? 
+            getSearchURLWithEngine(query, contextMenuEngine) : 
+            getSearchURLFromInput(query);
+
+        searchPromise.then(searchUrl => {
             try {
                 // Get or create the container
                 const container = createSearchContainer();
@@ -430,7 +597,7 @@
                         const containerWidth = browserContainer.clientWidth;
                         const containerHeight = browserContainer.clientHeight;
 
-                        const scaleFactor = 0.95;
+                        const scaleFactor = quickSearchPrefs ? quickSearchPrefs.get('behavior.scale_factor') : 0.95;
                         iframe.style.width = `${Math.floor(containerWidth / scaleFactor)}px`;
                         iframe.style.height = `${Math.floor(containerHeight / scaleFactor)}px`;
                     }, 500);
@@ -481,14 +648,93 @@
         
         container._escKeyListener = function(event) {
             if (event.key === 'Escape') {
-                event.preventDefault();
-                event.stopPropagation();
-                closeQuickSearch(container);
-                document.removeEventListener('keydown', container._escKeyListener);
+                const escapeCloses = quickSearchPrefs ? quickSearchPrefs.get('shortcuts.escape_closes') : true;
+                if (escapeCloses) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    closeQuickSearch(container);
+                    document.removeEventListener('keydown', container._escKeyListener);
+                }
             }
         };
         
         document.addEventListener('keydown', container._escKeyListener);
+    }
+
+    // Add keyboard shortcuts
+    function addKeyboardShortcuts() {
+        function handleGlobalShortcuts(event) {
+            const toggleKey = quickSearchPrefs ? quickSearchPrefs.get('shortcuts.toggle_key') : 'Ctrl+Shift+Q';
+            
+            // Parse the toggle key combination
+            const keyParts = toggleKey.split('+').map(k => k.trim());
+            const hasCtrl = keyParts.includes('Ctrl');
+            const hasShift = keyParts.includes('Shift');
+            const hasAlt = keyParts.includes('Alt');
+            const mainKey = keyParts[keyParts.length - 1];
+            
+            // Check if the pressed key combination matches the toggle shortcut
+            if (event.ctrlKey === hasCtrl && 
+                event.shiftKey === hasShift && 
+                event.altKey === hasAlt && 
+                event.key.toLowerCase() === mainKey.toLowerCase()) {
+                
+                event.preventDefault();
+                event.stopPropagation();
+                
+                // Toggle Quick Search
+                const existingContainer = document.getElementById('quicksearch-container');
+                if (existingContainer && existingContainer.classList.contains('visible')) {
+                    closeQuickSearch(existingContainer);
+                } else {
+                    // Create a simple search interface
+                    const container = createSearchContainer();
+                    container.classList.add('visible');
+                    
+                    // Create a search input if it doesn't exist
+                    let searchInput = document.getElementById('quicksearch-input');
+                    if (!searchInput) {
+                        searchInput = document.createElement('input');
+                        searchInput.id = 'quicksearch-input';
+                        searchInput.type = 'text';
+                        searchInput.placeholder = 'Enter search query...';
+                        searchInput.style.cssText = `
+                            width: 100%;
+                            padding: 10px;
+                            border: none;
+                            border-bottom: 1px solid #ccc;
+                            outline: none;
+                            font-size: 14px;
+                            box-sizing: border-box;
+                            background: transparent;
+                        `;
+                        
+                        searchInput.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter') {
+                                const query = this.value.trim();
+                                if (query) {
+                                    // Remove the input and search
+                                    this.remove();
+                                    handleQuickSearch(query, null, false);
+                                }
+                            }
+                        });
+                        
+                        container.insertBefore(searchInput, container.firstChild);
+                    }
+                    
+                    // Auto-focus if enabled
+                    const autoFocus = quickSearchPrefs ? quickSearchPrefs.get('behavior.auto_focus') : true;
+                    if (autoFocus) {
+                        setTimeout(() => searchInput.focus(), 100);
+                    }
+                    
+                    addEscKeyListener(container);
+                }
+            }
+        }
+        
+        document.addEventListener('keydown', handleGlobalShortcuts, true);
     }
 
     // Function to close the quick search container
@@ -496,7 +742,12 @@
         if (!container) container = document.getElementById('quicksearch-container');
         if (!container) return;
         
-        container.classList.add('closing');
+        const animationsEnabled = quickSearchPrefs ? quickSearchPrefs.get('behavior.animation_enabled') : true;
+        const animationDuration = animationsEnabled ? 300 : 0;
+        
+        if (animationsEnabled) {
+            container.classList.add('closing');
+        }
         
         setTimeout(() => {
             container.classList.remove('visible');
@@ -511,32 +762,61 @@
                 }
             }
             
+            // Remove search input if exists
+            const searchInput = document.getElementById('quicksearch-input');
+            if (searchInput) {
+                searchInput.remove();
+            }
+            
             // Remove the ESC key listener
             if (container._escKeyListener) {
                 document.removeEventListener('keydown', container._escKeyListener);
                 container._escKeyListener = null;
             }
-        }, 300);
+        }, animationDuration);
     }
     
-    const prefs = Services.prefs;
-    const prefNameWidth = "quicksearch.container.width";
-    const prefNameHeight = "quicksearch.container.height";
-
     function saveContainerDimensions(width, height) {
-        prefs.setIntPref(prefNameWidth, width);
-        prefs.setIntPref(prefNameHeight, height);
+        const rememberSize = quickSearchPrefs ? quickSearchPrefs.get('behavior.remember_size') : true;
+        
+        if (rememberSize && quickSearchPrefs) {
+            quickSearchPrefs.set('container.width', width);
+            quickSearchPrefs.set('container.height', height);
+        } else if (rememberSize) {
+            // Fallback to legacy method
+            const prefs = Services.prefs;
+            const prefNameWidth = "quicksearch.container.width";
+            const prefNameHeight = "quicksearch.container.height";
+            try {
+                prefs.setIntPref(prefNameWidth, width);
+                prefs.setIntPref(prefNameHeight, height);
+            } catch (e) {
+                console.error('QuickSearch: Failed to save dimensions', e);
+            }
+        }
     }
 
     function loadContainerDimensions() {
-        let width = 550;
-        let height = 300;
-
-        try {
-            width = prefs.getIntPref(prefNameWidth);
-            height = prefs.getIntPref(prefNameHeight);
-        } catch (e) {
-            // Use default values if preferences are not set
+        let width = quickSearchPrefs ? quickSearchPrefs.get('container.width') : 550;
+        let height = quickSearchPrefs ? quickSearchPrefs.get('container.height') : 300;
+        
+        // Check if we should remember size
+        const rememberSize = quickSearchPrefs ? quickSearchPrefs.get('behavior.remember_size') : true;
+        
+        if (rememberSize) {
+            // Load from legacy preferences if quickSearchPrefs not available
+            if (!quickSearchPrefs) {
+                const prefs = Services.prefs;
+                const prefNameWidth = "quicksearch.container.width";
+                const prefNameHeight = "quicksearch.container.height";
+                
+                try {
+                    width = prefs.getIntPref(prefNameWidth);
+                    height = prefs.getIntPref(prefNameHeight);
+                } catch (e) {
+                    // Use default values if preferences are not set
+                }
+            }
         }
 
         const container = document.getElementById('quicksearch-container');
@@ -658,6 +938,88 @@
         }
     }
 
-    // Initialize after a small delay
+    // Function to add context menu item
+    function addContextMenuItem() {
+        const contextMenu = document.getElementById("contentAreaContextMenu");
+        if (!contextMenu) {
+            setTimeout(addContextMenuItem, 500);
+            return;
+        }
+
+        if (document.getElementById("quicksearch-context-menuitem")) {
+            return;
+        }
+
+        const accessKey = quickSearchPrefs ? quickSearchPrefs.get('context_menu.access_key') : 'Q';
+        const menuItem = document.createXULElement("menuitem");
+        menuItem.id = "quicksearch-context-menuitem";
+        menuItem.setAttribute("label", "Open in Quick Search");
+        menuItem.setAttribute("accesskey", accessKey);
+        
+        menuItem.addEventListener("command", handleContextMenuClick);
+        
+        const searchSelectItem = contextMenu.querySelector("#context-searchselect");
+        
+        if (searchSelectItem) {
+            // Insert right after the searchselect item
+            if (searchSelectItem.nextSibling) {
+                contextMenu.insertBefore(menuItem, searchSelectItem.nextSibling);
+            } else {
+                contextMenu.appendChild(menuItem);
+            }
+        } else {
+            // Fallback: insert after context-sep-redo separator
+            const redoSeparator = contextMenu.querySelector("#context-sep-redo");
+            if (redoSeparator) {
+                if (redoSeparator.nextSibling) {
+                    contextMenu.insertBefore(menuItem, redoSeparator.nextSibling);
+                } else {
+                    contextMenu.appendChild(menuItem);
+                }
+            } else {
+                // Final fallback: don't add the menu item if neither element is found
+                return;
+            }
+        }
+
+        contextMenu.addEventListener("popupshowing", updateContextMenuVisibility);
+    }
+
+
+    function handleContextMenuClick() {
+        let selectedText = "";
+        
+
+        if (typeof gContextMenu !== 'undefined' && gContextMenu.selectedText) {
+            selectedText = gContextMenu.selectedText.trim();
+        } else {
+            console.error("Error getting selected text:", e);
+        }
+        
+        if (selectedText && selectedText.trim()) {
+            handleQuickSearch(selectedText.trim(), null, true);
+        }
+    }
+
+
+
+    function updateContextMenuVisibility(event) {
+        const menuItem = document.getElementById("quicksearch-context-menuitem");
+        if (!menuItem) {
+            return;
+        }
+        let hasSelection = false;
+        let selectedText = "";
+
+        if (typeof gContextMenu !== 'undefined') {
+            hasSelection = gContextMenu.isTextSelected === true;
+            if (hasSelection && gContextMenu.selectedText) {
+                selectedText = gContextMenu.selectedText.trim();
+            }
+        }
+        
+        menuItem.hidden = !hasSelection;
+    }
+
     setTimeout(init, 1000);
 })();
