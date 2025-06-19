@@ -1,50 +1,181 @@
 (function() {
     'use strict';
 
-    const ADD_CONTEXT_MENU_ITEM = true;
-    const CONTEXT_MENU_ENGINE = "@ddg";
-    const CONTEXT_ACCESS_KEY = "Q";
+    // --- Preference Configuration (following AI Tab Groups pattern) ---
     
-    const injectCSS = () => {
+    // Preference Keys
+    const CONTEXT_MENU_ENABLED_PREF = "extensions.quicksearch.context_menu.enabled";
+    const CONTEXT_MENU_ENGINE_PREF = "extensions.quicksearch.context_menu.engine";
+    const CONTEXT_MENU_ACCESS_KEY_PREF = "extensions.quicksearch.context_menu.access_key";
+    const CONTAINER_POSITION_PREF = "extensions.quicksearch.container.position";
+    const CONTAINER_THEME_PREF = "extensions.quicksearch.container.theme";
+    const BEHAVIOR_ANIMATION_ENABLED_PREF = "extensions.quicksearch.behavior.animation_enabled";
+    const BEHAVIOR_REMEMBER_SIZE_PREF = "extensions.quicksearch.behavior.remember_size";
+    const BEHAVIOR_AUTO_FOCUS_PREF = "extensions.quicksearch.behavior.auto_focus";
+    const SHORTCUTS_TOGGLE_KEY_PREF = "extensions.quicksearch.shortcuts.toggle_key";
+    const SHORTCUTS_ESCAPE_CLOSES_PREF = "extensions.quicksearch.shortcuts.escape_closes";
+
+    // Helper function to read preferences with fallbacks (like AI Tab Groups)
+    const getPref = (prefName, defaultValue = "") => {
+        try {
+            const prefService = Services.prefs;
+            if (prefService.prefHasUserValue(prefName)) {
+                switch (prefService.getPrefType(prefName)) {
+                    case prefService.PREF_STRING:
+                        return prefService.getStringPref(prefName);
+                    case prefService.PREF_INT:
+                        return prefService.getIntPref(prefName);
+                    case prefService.PREF_BOOL:
+                        return prefService.getBoolPref(prefName);
+                }
+            }
+        } catch (e) {
+            console.warn(`QuickSearch NoBar: Failed to read preference ${prefName}:`, e);
+        }
+        return defaultValue;
+    };
+
+    // Helper function to set preferences
+    const setPref = (prefName, value) => {
+        try {
+            const prefService = Services.prefs;
+            if (typeof value === 'boolean') {
+                prefService.setBoolPref(prefName, value);
+            } else if (typeof value === 'number') {
+                prefService.setIntPref(prefName, value);
+            } else {
+                prefService.setStringPref(prefName, value);
+            }
+        } catch (e) {
+            console.warn(`QuickSearch NoBar: Failed to set preference ${prefName}:`, e);
+        }
+    };
+
+    // Read preference values once at startup (like AI Tab Groups)
+    const CONTEXT_MENU_ENABLED = getPref(CONTEXT_MENU_ENABLED_PREF, true);
+    const CONTEXT_MENU_ENGINE = getPref(CONTEXT_MENU_ENGINE_PREF, "@ddg");
+    const CONTEXT_MENU_ACCESS_KEY = getPref(CONTEXT_MENU_ACCESS_KEY_PREF, "Q");
+    const CONTAINER_POSITION = getPref(CONTAINER_POSITION_PREF, "top-right");
+    const CONTAINER_THEME = getPref(CONTAINER_THEME_PREF, "dark");
+    const BEHAVIOR_ANIMATION_ENABLED = getPref(BEHAVIOR_ANIMATION_ENABLED_PREF, true);
+    const BEHAVIOR_REMEMBER_SIZE = getPref(BEHAVIOR_REMEMBER_SIZE_PREF, true);
+    const BEHAVIOR_AUTO_FOCUS = getPref(BEHAVIOR_AUTO_FOCUS_PREF, true);
+    const SHORTCUTS_TOGGLE_KEY = getPref(SHORTCUTS_TOGGLE_KEY_PREF, "Ctrl+Shift+Q");
+    const SHORTCUTS_ESCAPE_CLOSES = getPref(SHORTCUTS_ESCAPE_CLOSES_PREF, true);
+
+    // --- End Preference Configuration ---
+    
+    const injectCSS = (theme = 'dark', position = 'top-right', animationsEnabled = true) => {
+        // Theme configurations
+        const themes = {
+            dark: {
+                containerBg: '#1e1f1f',
+                containerBorder: '#404040',
+                searchBarBg: '#2a2a2a',
+                searchBarInputBg: '#3a3a3a',
+                searchBarInputFocusBg: '#444',
+                searchBarBorder: '#444',
+                textColor: '#f0f0f0',
+                closeBtnBg: 'rgba(240, 240, 240, 0.8)',
+                closeBtnColor: '#555',
+                closeBtnHoverBg: 'rgba(220, 220, 220, 0.9)',
+                closeBtnHoverColor: '#000'
+            },
+            light: {
+                containerBg: '#ffffff',
+                containerBorder: '#e0e0e0',
+                searchBarBg: '#f9f9f9',
+                searchBarInputBg: '#ffffff',
+                searchBarInputFocusBg: '#f0f0f0',
+                searchBarBorder: '#ddd',
+                textColor: '#333',
+                closeBtnBg: 'rgba(60, 60, 60, 0.8)',
+                closeBtnColor: '#fff',
+                closeBtnHoverBg: 'rgba(40, 40, 40, 0.9)',
+                closeBtnHoverColor: '#fff'
+            },
+            auto: window.matchMedia('(prefers-color-scheme: dark)').matches ? {
+                containerBg: '#1e1f1f',
+                containerBorder: '#404040',
+                searchBarBg: '#2a2a2a',
+                searchBarInputBg: '#3a3a3a',
+                searchBarInputFocusBg: '#444',
+                searchBarBorder: '#444',
+                textColor: '#f0f0f0',
+                closeBtnBg: 'rgba(240, 240, 240, 0.8)',
+                closeBtnColor: '#555',
+                closeBtnHoverBg: 'rgba(220, 220, 220, 0.9)',
+                closeBtnHoverColor: '#000'
+            } : {
+                containerBg: '#ffffff',
+                containerBorder: '#e0e0e0',
+                searchBarBg: '#f9f9f9',
+                searchBarInputBg: '#ffffff',
+                searchBarInputFocusBg: '#f0f0f0',
+                searchBarBorder: '#ddd',
+                textColor: '#333',
+                closeBtnBg: 'rgba(60, 60, 60, 0.8)',
+                closeBtnColor: '#fff',
+                closeBtnHoverBg: 'rgba(40, 40, 40, 0.9)',
+                closeBtnHoverColor: '#fff'
+            }
+        };
+
+        const currentTheme = themes[theme] || themes.dark;
+
+        // Position configurations
+        const positions = {
+            'top-right': { top: '10px', right: '10px', left: 'auto', bottom: 'auto' },
+            'top-left': { top: '10px', left: '10px', right: 'auto', bottom: 'auto' },
+            'center': { top: '50%', left: '50%', right: 'auto', bottom: 'auto', transform: 'translate(-50%, -50%)' },
+            'bottom-right': { bottom: '10px', right: '10px', top: 'auto', left: 'auto' },
+            'bottom-left': { bottom: '10px', left: '10px', top: 'auto', right: 'auto' }
+        };
+
+        const currentPosition = positions[position] || positions['top-right'];
+
         const css = `
             @keyframes quicksearchSlideIn {
                 0% {
-                    transform: translateY(-100%);
+                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(0.8)' : 'translateY(-100%)'};
                     opacity: 0;
                 }
                 60% {
-                    transform: translateY(5%);
+                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(1.05)' : 'translateY(5%)'};
                     opacity: 1;
                 }
                 80% {
-                    transform: translateY(-2%);
+                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(0.98)' : 'translateY(-2%)'};
                 }
                 100% {
-                    transform: translateY(0);
+                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(1)' : 'translateY(0)'};
                 }
             }
             
             @keyframes quicksearchSlideOut {
                 0% {
-                    transform: translateY(0);
+                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(1)' : 'translateY(0)'};
                     opacity: 1;
                 }
                 100% {
-                    transform: translateY(-100%);
+                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(0.8)' : 'translateY(-100%)'};
                     opacity: 0;
                 }
             }
             
             #quicksearch-container {
                 position: fixed;
-                top: 10px;
-                right: 10px;
+                top: ${currentPosition.top};
+                right: ${currentPosition.right};
+                left: ${currentPosition.left};
+                bottom: ${currentPosition.bottom};
+                ${currentPosition.transform ? `transform: ${currentPosition.transform};` : ''}
                 width: 550px;
                 min-width: 200px;
                 min-height: 150px;
                 max-width: 70vw;
                 max-height: 70vh;
-                background-color: #1e1f1f;
+                background-color: ${currentTheme.containerBg};
                 border-radius: 8px;
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
                 z-index: 9999;
@@ -53,24 +184,24 @@
                 overflow: hidden;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                 opacity: 0;
-                border: 1px solid #e0e0e0;
+                border: 1px solid ${currentTheme.containerBorder};
             }
             
             #quicksearch-container.visible {
                 display: flex;
                 opacity: 1;
-                animation: quicksearchSlideIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+                ${animationsEnabled ? 'animation: quicksearchSlideIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;' : ''}
             }
             
             #quicksearch-container.closing {
-                animation: quicksearchSlideOut 0.3s ease-in forwards;
+                ${animationsEnabled ? 'animation: quicksearchSlideOut 0.3s ease-in forwards;' : ''}
             }
             
             #quicksearch-searchbar-container {
                 display: flex;
                 padding: 10px;
-                background-color: #2a2a2a;
-                border-bottom: 1px solid #444;
+                background-color: ${currentTheme.searchBarBg};
+                border-bottom: 1px solid ${currentTheme.searchBarBorder};
                 align-items: center;
                 min-height: 56px;
                 box-sizing: border-box;
@@ -83,14 +214,14 @@
                 border: none;
                 padding: 0 15px;
                 font-size: 14px;
-                background-color: #3a3a3a;
-                color: #f0f0f0;
+                background-color: ${currentTheme.searchBarInputBg};
+                color: ${currentTheme.textColor};
                 outline: none;
                 transition: background-color 0.2s;
             }
             
             #quicksearch-searchbar:focus {
-                background-color: #444;
+                background-color: ${currentTheme.searchBarInputFocusBg};
                 box-shadow: 0 0 0 2px rgba(255,255,255,0.1);
             }
             
@@ -98,7 +229,7 @@
                 flex: 1;
                 width: 100%;
                 border: none;
-                background-color: #1e1f1f;
+                background-color: ${currentTheme.containerBg};
                 position: relative;
                 overflow: hidden;
                 opacity: 0;
@@ -114,7 +245,7 @@
                 height: 100%;
                 border: none;
                 overflow: hidden;
-                background-color: #1e1f1f;
+                background-color: ${currentTheme.containerBg};
                 transform-origin: 0 0;
                 transform: scale(1);
             }
@@ -122,14 +253,14 @@
             .quicksearch-close-button {
                 width: 24px;
                 height: 24px;
-                background-color: rgba(240, 240, 240, 0.8);
+                background-color: ${currentTheme.closeBtnBg};
                 border: none;
                 border-radius: 50%;
                 font-size: 14px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color: #555;
+                color: ${currentTheme.closeBtnColor};
                 cursor: pointer;
                 margin-left: 8px;
                 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
@@ -137,9 +268,9 @@
             }
             
             .quicksearch-close-button:hover {
-                background-color: rgba(220, 220, 220, 0.9);
+                background-color: ${currentTheme.closeBtnHoverBg};
                 transform: scale(1.1);
-                color: #000;
+                color: ${currentTheme.closeBtnHoverColor};
             }
             
             .quicksearch-engine-indicator {
@@ -147,7 +278,7 @@
                 align-items: center;
                 padding: 0 8px;
                 font-size: 12px;
-                color: #aaa;
+                color: ${currentTheme.textColor === '#f0f0f0' ? '#aaa' : '#666'};
             }
             
             #quicksearch-resizer {
@@ -205,15 +336,11 @@
         }
     }
 
-    function adjustContentScaling(element) {
+    function styleContentFrame(element) {
         if (!element) return;
         
-        element.addEventListener('load', function() {
-            const scaleFactor = 0.95;
-            element.style.transform = `scale(${scaleFactor})`;
-            element.style.transformOrigin = '0 0';
-            
-            if (element.tagName.toLowerCase() === 'iframe') {
+        if (element.tagName.toLowerCase() === 'iframe') {
+            element.addEventListener('load', function() {
                 setTimeout(() => {
                     try {
                         if (element.contentDocument) {
@@ -249,38 +376,64 @@
                                 }
                             `;
                             element.contentDocument.head.appendChild(style);
-                            
-                            const mainContent = element.contentDocument.body;
-                            if (mainContent) {
-                                mainContent.style.transformOrigin = '0 0';
-                            }
                         }
                     } catch (e) {
                         // Cross-origin restrictions might prevent this
                     }
                 }, 500);
-            }
-        });
+            });
+        }
     }
 
     function init() {
-        injectCSS();
+        if (!ensureServicesAvailable()) return;
+        
+        // Inject CSS with user preferences
+        injectCSS(CONTAINER_THEME, CONTAINER_POSITION, BEHAVIOR_ANIMATION_ENABLED);
         attachGlobalHotkey();
         loadContainerDimensions();
         
         // Add context menu item if enabled
-        if (ADD_CONTEXT_MENU_ITEM) {
+        if (CONTEXT_MENU_ENABLED) {
             addContextMenuItem();
         }
     }
     
     function attachGlobalHotkey() {
         window.addEventListener("keydown", function(event) {
+            // Check for Ctrl+Enter (original hotkey)
             if (event.ctrlKey && event.key === "Enter") {
                 event.preventDefault();
                 event.stopPropagation();
                 
                 showQuickSearchContainer();
+                
+                return false;
+            }
+            
+            // Check for custom toggle key
+            const toggleKey = SHORTCUTS_TOGGLE_KEY;
+            const keyParts = toggleKey.split('+').map(k => k.trim());
+            const hasCtrl = keyParts.includes('Ctrl');
+            const hasShift = keyParts.includes('Shift');
+            const hasAlt = keyParts.includes('Alt');
+            const mainKey = keyParts[keyParts.length - 1];
+            
+            if (event.ctrlKey === hasCtrl && 
+                event.shiftKey === hasShift && 
+                event.altKey === hasAlt && 
+                event.key.toLowerCase() === mainKey.toLowerCase()) {
+                
+                event.preventDefault();
+                event.stopPropagation();
+                
+                // Toggle Quick Search
+                const existingContainer = document.getElementById('quicksearch-container');
+                if (existingContainer && existingContainer.classList.contains('visible')) {
+                    closeQuickSearch(existingContainer);
+                } else {
+                    showQuickSearchContainer();
+                }
                 
                 return false;
             }
@@ -292,7 +445,7 @@
         container.classList.add('visible');
         
         const searchBar = document.getElementById('quicksearch-searchbar');
-        if (searchBar) {
+        if (searchBar && BEHAVIOR_AUTO_FOCUS) {
             setTimeout(() => {
                 searchBar.focus();
             }, 100);
@@ -349,7 +502,7 @@
                     const success = loadContentInBrowser(browserElement, searchUrl);
                     
                     if (success) {
-                        adjustContentScaling(browserElement);
+                        styleContentFrame(browserElement);
                         return;
                     } else {
                         browserContainer.removeChild(browserElement);
@@ -369,16 +522,7 @@
                 iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
                 iframe.referrerPolicy = 'origin';
                 
-                iframe.addEventListener('load', function() {
-                    setTimeout(() => {
-                        const containerWidth = browserContainer.clientWidth;
-                        const containerHeight = browserContainer.clientHeight;
-                        
-                        const scaleFactor = 0.95;
-                        iframe.style.width = `${Math.floor(containerWidth / scaleFactor)}px`;
-                        iframe.style.height = `${Math.floor(containerHeight / scaleFactor)}px`;
-                    }, 500);
-                });
+                // Remove the load event listener that adjusted dimensions
                 
                 browserContainer.appendChild(iframe);
                 
@@ -386,7 +530,7 @@
                     iframe.src = searchUrl;
                 }, 100);
 
-                adjustContentScaling(iframe);
+                styleContentFrame(iframe);
                 
             } catch (error) {
                 try {
@@ -407,9 +551,13 @@
         
         container._escKeyListener = function(event) {
             if (event.key === 'Escape') {
-                event.preventDefault();
-                event.stopPropagation();
-                closeQuickSearch(container);
+                const escapeCloses = SHORTCUTS_ESCAPE_CLOSES;
+                if (escapeCloses) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    closeQuickSearch(container);
+                    document.removeEventListener('keydown', container._escKeyListener);
+                }
             }
         };
         
@@ -420,11 +568,15 @@
         if (!container) container = document.getElementById('quicksearch-container');
         if (!container) return;
         
-        // Add closing class but don't remove expanded yet
-        container.classList.add('closing');
+        const animationsEnabled = BEHAVIOR_ANIMATION_ENABLED;
         
-        // Determine animation duration based on whether it's expanded
-        const animationDuration = container.classList.contains('expanded') ? 500 : 300;
+        if (animationsEnabled) {
+            container.classList.add('closing');
+        }
+        
+        // Determine animation duration based on preferences and whether it's expanded
+        const animationDuration = animationsEnabled ? 
+            (container.classList.contains('expanded') ? 500 : 300) : 0;
         
         setTimeout(() => {
             container.classList.remove('visible');
@@ -447,25 +599,15 @@
         }, animationDuration);
     }
 
-    const prefs = Services.prefs;
-    const prefNameWidth = "quicksearch.container.width";
-    const prefNameHeight = "quicksearch.container.height";
-
     function saveContainerDimensions(width, height) {
-        prefs.setIntPref(prefNameWidth, width);
-        prefs.setIntPref(prefNameHeight, height);
+        // Container dimensions are no longer saved - using fixed default size
+        console.log('QuickSearch NoBar: Container dimensions not saved (width/height settings removed)');
     }
 
     function loadContainerDimensions() {
-        let width = 550;
-        let height = 300;
-
-        try {
-            width = prefs.getIntPref(prefNameWidth);
-            height = prefs.getIntPref(prefNameHeight);
-        } catch (e) {
-            // Use default values if preferences are not set
-        }
+        // Use fixed default dimensions
+        const width = 550;
+        const height = 300;
 
         const container = document.getElementById('quicksearch-container');
         if (container) {
@@ -659,7 +801,7 @@
         const menuItem = document.createXULElement("menuitem");
         menuItem.id = "quicksearch-context-menuitem";
         menuItem.setAttribute("label", "Open in Quick Search");
-        menuItem.setAttribute("accesskey", CONTEXT_ACCESS_KEY);
+        menuItem.setAttribute("accesskey", CONTEXT_MENU_ACCESS_KEY);
         
         menuItem.addEventListener("command", handleContextMenuClick);
         
