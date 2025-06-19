@@ -3,7 +3,7 @@
     "name": "Quick Search",
     "description": "This is a quick search script for zen browser. Allows an user to quickly search a query in a small pop up container thus removing the need to swtich to a whole different tab ",
     "homepage": "https://github.com/Darsh-A/Quick-Search-Zen-Browser",
-    "js": true,
+    "js": ["quicksearch.uc.js"],
     "readme": "https://raw.githubusercontent.com/Darsh-A/Quick-Search-Zen-Browser/refs/heads/main/README.md",
     "author": "Darsh A",
     "version": "2.0.0",
@@ -14,7 +14,7 @@
         "JavaScript",
         "Darsh A"
     ],
-    "createdAt": "2025-05-26",
-    "updatedAt": "2025-06-19",
+    "createdAt": "2025-05-26T00:00:00Z",
+    "updatedAt": "2025-12-19T15:00:00Z",
     "fork": ["zen"]
 }
