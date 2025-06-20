@@ -65,6 +65,13 @@
 
     // --- End Preference Configuration ---
     
+    const googleFaviconAPI = (url) => {
+        const hostName = new URL(url).hostname;
+        return `https://s2.googleusercontent.com/s2/favicons?domain_url=https://${hostName}&sz=32`;
+    };
+    let currentSearchEngine = null;
+    let currentSearchTerm = '';
+
     const injectCSS = (theme = 'dark', position = 'top-right', animationsEnabled = true) => {
         // Theme configurations
         const themes = {
@@ -273,14 +280,6 @@
                 color: ${currentTheme.closeBtnHoverColor};
             }
             
-            .quicksearch-engine-indicator {
-                display: flex;
-                align-items: center;
-                padding: 0 8px;
-                font-size: 12px;
-                color: ${currentTheme.textColor === '#f0f0f0' ? '#aaa' : '#666'};
-            }
-            
             #quicksearch-resizer {
                 position: absolute;
                 bottom: 0;
@@ -295,6 +294,57 @@
                 z-index: 10001;
                 transform: rotate(180deg);
             }
+
+            #quicksearch-engine-select-wrapper {
+              position: relative;
+              display: inline-block;
+              min-width: 150px;
+              font-size: 14px;
+            }
+
+            #quicksearch-engine-select {
+              background-color: #3a3a3a;
+              color: #f0f0f0;
+              border: none;
+              border-radius: 5px;
+              padding: 5px 10px;
+              cursor: pointer;
+              user-select: none;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+
+            #quicksearch-engine-options {
+              position: absolute;
+              top: 100%;
+              left: 0;
+              right: 0;
+              background-color: #1e1f1f;
+              border-radius: 5px;
+              max-height: 200px;
+              overflow-y: auto;
+              z-index: 1000;
+              display: none;
+            }
+
+            #quicksearch-engine-option {
+              padding: 6px 10px;
+              display: flex;
+              align-items: center;
+              cursor: pointer;
+              gap: 8px;
+            }
+
+            #quicksearch-engine-option:hover {
+              background-color: #333;
+            }
+
+            #quicksearch-engine-options img {
+              width: 16px;
+              height: 16px;
+            }
+
             .z-index: 10000;
         `;
         
@@ -454,11 +504,12 @@
         addEscKeyListener(container);
     }
 
-    function handleQuickSearch(query, fromContextMenu = false) {
+    function handleQuickSearch(query, engineName = null) {
         ensureServicesAvailable();
 
-        const searchPromise = fromContextMenu ? 
-            getSearchURLWithEngine(query, CONTEXT_MENU_ENGINE) : 
+        currentSearchTerm = query
+        const searchPromise = engineName ? 
+            getSearchURLWithEngine(query, engineName) : 
             getSearchURLFromInput(query);
 
         searchPromise.then(searchUrl => {
@@ -467,21 +518,6 @@
                 const browserContainer = document.getElementById('quicksearch-browser-container');
 
                 container.classList.add('expanded');
-
-                const engineIndicator = document.getElementById('quicksearch-engine-indicator');
-                if (engineIndicator) {
-                    Services.search.getEngines().then(engines => {
-                        let [prefix, ..._] = query.trim().split(/\s+/);
-                        let engine = engines.find(e =>
-                            e._definedAliases && e._definedAliases.includes(prefix)
-                        );
-
-                        if (!engine) {
-                            engine = Services.search.defaultEngine;
-                        }
-                        engineIndicator.textContent = engine.name;
-                    });
-                }
                 
                 while (browserContainer.firstChild) {
                     browserContainer.removeChild(browserContainer.firstChild);
@@ -642,10 +678,69 @@
         } catch (e) {
         }
         
-        const engineIndicator = document.createElement('div');
-        engineIndicator.id = 'quicksearch-engine-indicator';
-        engineIndicator.className = 'quicksearch-engine-indicator';
-        engineIndicator.textContent = 'Google';
+        const quicksearchEngineWrapper = document.createElement('div');
+        quicksearchEngineWrapper.id = 'quicksearch-engine-select-wrapper';
+
+        const quicksearchEngineButton = document.createElement('div');
+        quicksearchEngineButton.id = 'quicksearch-engine-select';
+
+        const quicksearchOptions = document.createElement('div');
+        quicksearchOptions.id = 'quicksearch-engine-options';
+
+        quicksearchEngineWrapper.appendChild(quicksearchEngineButton);
+        quicksearchEngineWrapper.appendChild(quicksearchOptions);
+        searchBarContainer.appendChild(quicksearchEngineWrapper);
+
+        quicksearchEngineButton.addEventListener('click', (e) => {
+          e.stopPropagation();  
+          quicksearchOptions.style.display = quicksearchOptions.style.display === 'block' ? 'none' : 'block';
+        });
+
+        document.addEventListener('click', () => {
+          quicksearchOptions.style.display = 'none';
+        });
+
+        Services.search.getEngines().then(engines => {
+          engines.forEach(engine => {
+            const option = document.createElement('div');
+            option.id = 'quicksearch-engine-option';
+
+            const faviconURL = googleFaviconAPI(engine.getSubmission("test").uri.spec);
+            const img = document.createElement('img');
+            img.src = faviconURL;
+            img.alt = engine.name;
+
+            option.appendChild(img);
+            option.appendChild(document.createTextNode(engine.name));
+
+            option.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (currentSearchEngine && currentSearchEngine.name == engine.name) return;
+              quicksearchEngineButton.innerHTML = '';
+              quicksearchEngineButton.appendChild(img.cloneNode());
+              quicksearchEngineButton.appendChild(document.createTextNode(engine.name));
+              currentSearchEngine = engine;
+              quicksearchOptions.style.display = 'none';
+              if (currentSearchTerm) {
+                handleQuickSearch(currentSearchTerm, engine.name);
+              }
+            });
+
+            quicksearchOptions.appendChild(option);
+          });
+
+          return Services.search.getDefault();
+        }).then(defaultEngine => {
+          currentSearchEngine = defaultEngine;
+          const faviconURL = googleFaviconAPI(defaultEngine.getSubmission("test").uri.spec);
+          const img = document.createElement('img');
+          img.src = faviconURL;
+          img.alt = defaultEngine.name;
+
+          quicksearchEngineButton.innerHTML = '';
+          quicksearchEngineButton.appendChild(img);
+          quicksearchEngineButton.appendChild(document.createTextNode(defaultEngine.name));
+        });
         
         const closeButton = document.createElement('button');
         closeButton.className = 'quicksearch-close-button';
@@ -664,7 +759,7 @@
         });
         
         searchBarContainer.appendChild(searchBar);
-        searchBarContainer.appendChild(engineIndicator);
+        searchBarContainer.appendChild(quicksearchEngineWrapper);
         searchBarContainer.appendChild(closeButton);
         
         const browserContainer = document.createElement('div');
@@ -765,10 +860,12 @@
                 e._definedAliases && e._definedAliases.includes(prefix)
             );
 
-            // If no alias matched, fallback to default engine
+            // If no alias matched, fallback to selected engine
             if (!engine) {
-                engine = Services.search.defaultEngine;
+                engine = currentSearchEngine || Services.search.defaultEngine;
                 searchTerm = input; // Whole input is the term
+            }else{
+                currentSearchEngine = engine
             }
 
             let submission = engine.getSubmission(searchTerm);
@@ -846,7 +943,7 @@
             // Show the container first, then perform the search
             showQuickSearchContainer();
             setTimeout(() => {
-                handleQuickSearch(selectedText.trim(), true);
+                handleQuickSearch(selectedText.trim(), CONTEXT_MENU_ENGINE);
             }, 100);
         }
     }
@@ -870,4 +967,4 @@
     }
 
     setTimeout(init, 1000);
-})();
+})()
