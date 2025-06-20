@@ -269,7 +269,6 @@
                 justify-content: center;
                 color: ${currentTheme.closeBtnColor};
                 cursor: pointer;
-                margin-left: 8px;
                 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
                 transition: background-color 0.2s, transform 0.2s;
             }
@@ -303,16 +302,20 @@
             }
 
             #quicksearch-engine-select {
-              background-color: #3a3a3a;
-              color: #f0f0f0;
+              flex: 1;
+              height: 36px;
+              border-radius: 18px;
               border: none;
-              border-radius: 5px;
-              padding: 5px 10px;
-              cursor: pointer;
-              user-select: none;
+              padding: 0 15px;
+              margin: 0 15px;
+              font-size: 14px;
+              background-color: ${currentTheme.searchBarInputBg};
+              color: ${currentTheme.textColor};
+              outline: none;
               display: flex;
               align-items: center;
-              gap: 8px;
+              gap: 4px;
+              transition: background-color 0.2s;
             }
 
             #quicksearch-engine-options {
@@ -340,7 +343,8 @@
               background-color: #333;
             }
 
-            #quicksearch-engine-options img {
+            #quicksearch-engine-options img,
+            #quicksearch-engine-select-wrapper img {
               width: 16px;
               height: 16px;
             }
