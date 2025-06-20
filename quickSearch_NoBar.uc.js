@@ -71,6 +71,19 @@
     };
     let currentSearchEngine = null;
     let currentSearchTerm = '';
+    const updateSelectedEngine = () =>{
+      if (!currentSearchEngine) return
+      const faviconURL = currentSearchEngine.iconURI ? currentSearchEngine.iconURI.spec : googleFaviconAPI(currentSearchEngine.getSubmission("test").uri.spec);
+      const img = document.createElement('img');
+      img.src = faviconURL;
+      img.alt = currentSearchEngine.name;
+      const quicksearchEngineButton = document.getElementById( 'quicksearch-engine-select' );
+      if (quicksearchEngineButton){
+        quicksearchEngineButton.innerHTML = '';
+        quicksearchEngineButton.appendChild(img);
+        quicksearchEngineButton.appendChild(document.createTextNode(currentSearchEngine.name));
+      }
+    }
 
     const injectCSS = (theme = 'dark', position = 'top-right', animationsEnabled = true) => {
         // Theme configurations
@@ -511,7 +524,6 @@
     function handleQuickSearch(query, engineName = null) {
         ensureServicesAvailable();
 
-        currentSearchTerm = query
         const searchPromise = engineName ? 
             getSearchURLWithEngine(query, engineName) : 
             getSearchURLFromInput(query);
@@ -872,6 +884,7 @@
                 currentSearchEngine = engine
             }
 
+            currentSearchTerm = searchTerm
             let submission = engine.getSubmission(searchTerm);
             return submission.uri.spec;
         });
@@ -883,6 +896,14 @@
         let engine = engines.find(e => e.name === engineName || (e._definedAliases && e._definedAliases.includes(engineName)));
         if (!engine) engine = await Services.search.getDefault();
         let searchTerm = query.trim();
+        currentSearchEngine = engine
+
+        // Small delay before updating selected engine
+        setTimeout(() => {
+          updateSelectedEngine()
+        }, 100);
+
+        currentSearchTerm = searchTerm
         let submission = engine.getSubmission(searchTerm);
         return submission.uri.spec;
     }

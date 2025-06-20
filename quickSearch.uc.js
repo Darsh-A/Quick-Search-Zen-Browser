@@ -75,6 +75,19 @@
     };
     let currentSearchEngine = null;
     let currentSearchTerm = '';
+    const updateSelectedEngine = () =>{
+      if (!currentSearchEngine) return
+      const faviconURL = currentSearchEngine.iconURI ? currentSearchEngine.iconURI.spec : googleFaviconAPI(currentSearchEngine.getSubmission("test").uri.spec);
+      const img = document.createElement('img');
+      img.src = faviconURL;
+      img.alt = currentSearchEngine.name;
+      const quicksearchEngineButton = document.getElementById( 'quicksearch-engine-select' );
+      if (quicksearchEngineButton){
+        quicksearchEngineButton.innerHTML = '';
+        quicksearchEngineButton.appendChild(img);
+        quicksearchEngineButton.appendChild(document.createTextNode(currentSearchEngine.name));
+      }
+    }
 
     // Create and inject CSS for the search container
     const injectCSS = (theme = 'dark', position = 'top-right', animationsEnabled = true) => {
@@ -574,6 +587,12 @@
         currentSearchEngine = engine
 
         let searchTerm = query.trim();
+        currentSearchTerm = searchTerm
+
+        // Small delay before updating selected engine
+        setTimeout(() => {
+          updateSelectedEngine()
+        }, 100);
         let submission = engine.getSubmission(searchTerm);
         return submission.uri.spec;
     }
@@ -614,7 +633,6 @@
     // Process the search query and show in in-browser container
     function handleQuickSearch(query, engineName = null) {
         ensureServicesAvailable();
-        currentSearchTerm = query;
 
         const searchPromise = getSearchURLWithEngine(query, engineName);
 
@@ -924,9 +942,6 @@
                 option.addEventListener('click', (e) => {
                   e.stopPropagation();
                   if (currentSearchEngine && currentSearchEngine.name == engine.name) return
-                  quicksearchEngineButton.innerHTML = '';
-                  quicksearchEngineButton.appendChild(img.cloneNode());
-                  quicksearchEngineButton.appendChild(document.createTextNode(engine.name));
                   currentSearchEngine = engine;
                   quicksearchOptions.style.display = 'none';
                   
