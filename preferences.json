@@ -2,7 +2,7 @@
   {
     "property": "extensions.quicksearch.context_menu.enabled",
     "label": "Enable Context Menu Integration",
-    "type": "boolean",
+    "type": "checkbox",
     "placeholder": false,
     "default": true,
     "description": "Add Quick Search option to the right-click context menu"
@@ -96,7 +96,7 @@
   {
     "property": "extensions.quicksearch.behavior.animation_enabled",
     "label": "Enable Animations",
-    "type": "boolean",
+    "type": "checkbox",
     "placeholder": false,
     "default": true,
     "description": "Enable slide-in/slide-out animations for the container"
@@ -104,7 +104,7 @@
   {
     "property": "extensions.quicksearch.behavior.remember_size",
     "label": "Remember Container Size",
-    "type": "boolean",
+    "type": "checkbox",
     "placeholder": false,
     "default": true,
     "description": "Remember and restore the last used container dimensions"
@@ -112,7 +112,7 @@
   {
     "property": "extensions.quicksearch.behavior.auto_focus",
     "label": "Auto Focus Search Bar",
-    "type": "boolean",
+    "type": "checkbox",
     "placeholder": false,
     "default": true,
     "description": "Automatically focus the search input when Quick Search opens"
@@ -133,7 +133,7 @@
   {
     "property": "extensions.quicksearch.shortcuts.escape_closes",
     "label": "Escape Key Closes Container",
-    "type": "boolean",
+    "type": "checkbox",
     "placeholder": false,
     "default": true,
     "description": "Allow Escape key to close the Quick Search container"
