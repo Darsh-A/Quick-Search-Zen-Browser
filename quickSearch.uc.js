@@ -161,6 +161,15 @@
             'bottom-left': { bottom: '10px', left: '10px', top: 'auto', right: 'auto' }
         };
 
+        const resizeHandleStyles = {
+            'top-left': { top: 'auto', left: 'auto', right: '0', bottom: '0', transform: 'rotate(90deg)', cursor: 'se-resize' },
+            'center': { top: 'auto', left: 'auto', right: '0', bottom: '0', transform: 'rotate(90deg)', cursor: 'se-resize' },
+            'top-right': { top: 'auto', right: 'auto', left: '0', bottom: '0', transform: 'rotate(180deg)', cursor: 'sw-resize' },
+            'bottom-left': { bottom: 'auto', left: 'auto', top: '0', right: '0', transform: 'rotate(0deg)', cursor: 'ne-resize' },
+            'bottom-right': { bottom: 'auto', right: 'auto', top: '0', left: '0', transform: 'rotate(270deg)', cursor: 'nw-resize' },
+        };
+        
+        const currentResizeHandleStyles = resizeHandleStyles[position] || resizeHandleStyles['top-right'];
         const currentPosition = positions[position] || positions['top-right'];
 
         const css = `
@@ -301,18 +310,22 @@
             }
             
             #quicksearch-resizer {
-               position: absolute;
-               bottom: 0;
-               left: 0;
-               width: 0;
-               height: 0;
-               background:transparent;
-               border-style: solid;
-               border-width: 0 16px 16px 0;
-               border-color: transparent #fff transparent transparent;
-               cursor: sw-resize;
-               z-index: 10001;
-               transform: rotate(180deg);
+              position: absolute;
+              bottom: 0;
+              left: 0;
+              width: 0;
+              height: 0;
+              background:transparent;
+              border-style: solid;
+              border-width: 0 16px 16px 0;
+              border-color: transparent #fff transparent transparent;
+              z-index: 10001;
+              top: ${currentResizeHandleStyles.top};
+              right: ${currentResizeHandleStyles.right};
+              left: ${currentResizeHandleStyles.left};
+              bottom: ${currentResizeHandleStyles.bottom};
+              cursor: ${currentResizeHandleStyles.cursor};
+              transform: ${currentResizeHandleStyles.transform};
             }
 
             #quicksearch-engine-select-wrapper {
@@ -1012,8 +1025,8 @@
         function doResize(e) {
             if (!isResizing) return;
             
-            let width = startWidth - (e.clientX - startX);
-            let height = startHeight - (startY - e.clientY);
+            let width = startWidth + (e.clientX - startX) * (CONTAINER_POSITION.includes('right') ? -1 : 1);
+            let height = startHeight + (e.clientY - startY) * (CONTAINER_POSITION.includes('bottom') ? -1 : 1);
             
             // Enforce minimum dimensions
             width = Math.max(width, 200);
