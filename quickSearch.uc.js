@@ -65,6 +65,42 @@
 
     // --- End Preference Configuration ---
     
+    const googleFaviconAPI = (url) => {
+        try {
+            const hostName = new URL(url).hostname;
+            return `https://s2.googleusercontent.com/s2/favicons?domain_url=https://${hostName}&sz=32`;
+        } catch (e) {
+            return undefined; // Return undefined for invalid URLs
+        }
+    };
+
+    const getFaviconImg  =(engine)=>{ 
+      const img = document.createElement('img');
+      const thirdFallback = 'chrome://branding/content/icon32.png'
+      engine.getIconURL().then(url=>{
+        img.src = url || googleFaviconAPI(engine.getSubmission("test").uri.spec) || thirdFallback
+      }).catch( 
+        // fallback to google faviconAPI in case of error
+        img.src = googleFaviconAPI(engine.getSubmission("test").uri.spec) || thirdFallback 
+      )
+      img.src ='chrome://browser/content/zen-images/grain-bg.png'
+      img.alt = engine.name;
+      return img
+    }
+
+    let currentSearchEngine = null;
+    let currentSearchTerm = '';
+    const updateSelectedEngine = () =>{
+      if (!currentSearchEngine) return
+      const img = getFaviconImg(currentSearchEngine)
+      const quicksearchEngineButton = document.getElementById( 'quicksearch-engine-select' );
+      if (quicksearchEngineButton){
+        quicksearchEngineButton.innerHTML = '';
+        quicksearchEngineButton.appendChild(img);
+        quicksearchEngineButton.appendChild(document.createTextNode(currentSearchEngine.name));
+      }
+    }
+
     // Create and inject CSS for the search container
     const injectCSS = (theme = 'dark', position = 'top-right', animationsEnabled = true) => {
         // Theme configurations
@@ -76,7 +112,9 @@
                 closeBtnBg: 'rgba(240, 240, 240, 0.8)',
                 closeBtnColor: '#555',
                 closeBtnHoverBg: 'rgba(220, 220, 220, 0.9)',
-                closeBtnHoverColor: '#000'
+                closeBtnHoverColor: '#000',
+                headerBg: '#2a2a2a',
+                headerColor: '#e0e0e0'
             },
             light: {
                 containerBg: '#ffffff',
@@ -85,7 +123,9 @@
                 closeBtnBg: 'rgba(60, 60, 60, 0.8)',
                 closeBtnColor: '#fff',
                 closeBtnHoverBg: 'rgba(40, 40, 40, 0.9)',
-                closeBtnHoverColor: '#fff'
+                closeBtnHoverColor: '#fff',
+                headerBg: '#f0f0f0',
+                headerColor: '#333'
             },
             auto: window.matchMedia('(prefers-color-scheme: dark)').matches ? {
                 containerBg: '#1e1f1f',
@@ -94,7 +134,9 @@
                 closeBtnBg: 'rgba(240, 240, 240, 0.8)',
                 closeBtnColor: '#555',
                 closeBtnHoverBg: 'rgba(220, 220, 220, 0.9)',
-                closeBtnHoverColor: '#000'
+                closeBtnHoverColor: '#000',
+                headerBg: '#2a2a2a',
+                headerColor: '#e0e0e0'
             } : {
                 containerBg: '#ffffff',
                 containerBorder: '#e0e0e0',
@@ -102,7 +144,9 @@
                 closeBtnBg: 'rgba(60, 60, 60, 0.8)',
                 closeBtnColor: '#fff',
                 closeBtnHoverBg: 'rgba(40, 40, 40, 0.9)',
-                closeBtnHoverColor: '#fff'
+                closeBtnHoverColor: '#fff',
+                headerBg: '#f0f0f0',
+                headerColor: '#333'
             }
         };
 
@@ -182,6 +226,37 @@
             #quicksearch-container.closing {
                 ${animationsEnabled ? 'animation: quicksearchSlideOut 0.3s ease-in forwards;' : ''}
             }
+
+            #quicksearch-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 6px 10px;
+                background-color: ${currentTheme.headerBg};
+                border-bottom: 1px solid ${currentTheme.containerBorder};
+                color: ${currentTheme.headerColor};
+                flex-shrink: 0;
+                user-select: none;
+                -moz-user-select: none;
+                gap: 8px;
+            }
+
+            #quicksearch-header-title {
+                font-weight: bold;
+                font-size: 14px;
+            }
+
+            #quicksearch-input {
+                flex-grow: 1;
+                padding: 4px 8px;
+                border: 1px solid ${currentTheme.containerBorder};
+                outline: none;
+                font-size: 14px;
+                box-sizing: border-box;
+                background-color: ${currentTheme.containerBg};
+                color: ${currentTheme.headerColor};
+                border-radius: 4px;
+            }
             
             #quicksearch-browser-container {
                 flex: 1;
@@ -203,9 +278,6 @@
             }
             
             .quicksearch-close-button {
-                position: absolute;
-                top: 8px;
-                right: 8px;
                 width: 24px;
                 height: 24px;
                 background-color: ${currentTheme.closeBtnBg};
@@ -217,9 +289,9 @@
                 justify-content: center;
                 color: ${currentTheme.closeBtnColor};
                 cursor: pointer;
-                z-index: 10000;
                 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
                 transition: background-color 0.2s, transform 0.2s;
+                flex-shrink: 0;
             }
             
             .quicksearch-close-button:hover {
@@ -242,7 +314,73 @@
                z-index: 10001;
                transform: rotate(180deg);
             }
-            .z-index: 10000;
+
+            #quicksearch-engine-select-wrapper {
+              position: relative;
+              display: flex;
+              align-items: center;
+              font-size: 14px;
+              flex-grow: 1;
+              min-width: 0;
+            }
+
+            #quicksearch-engine-select {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              padding: 4px 8px;
+              border-radius: 6px;
+              cursor: pointer;
+              background-color: transparent;
+              color: ${currentTheme.headerColor};
+              transition: background-color 0.2s;
+              width: 100%;
+              max-width:140px;
+              text-align: left;
+              overflow: hidden;
+              white-space: nowrap;
+              text-overflow: ellipsis;
+            }
+
+            #quicksearch-engine-select:hover {
+                background-color: rgba(127, 127, 127, 0.15);
+            }
+
+            #quicksearch-engine-options {
+              position: absolute;
+              top: 110%;
+              left: 0;
+              min-width: 200px;
+              width: 100%;
+              max-width: 200px;
+              background-color: ${currentTheme.containerBg};
+              border: 1px solid ${currentTheme.containerBorder};
+              border-radius: 5px;
+              max-height: 200px;
+              overflow-y: auto;
+              z-index: 10002;
+              display: none;
+              color: ${currentTheme.headerColor};
+            }
+            
+            .quicksearch-engine-option {
+              padding: 6px 10px;
+              display: flex;
+              align-items: center;
+              cursor: pointer;
+              gap: 8px;
+            }
+            
+            .quicksearch-engine-option:hover {
+              background-color: ${currentTheme.browserBg};
+            }
+            
+            #quicksearch-engine-options img,
+            #quicksearch-engine-select img {
+              width: 16px;
+              height: 16px;
+              flex-shrink: 0;
+            }
         `;
         
         const styleElement = document.createElement('style');
@@ -412,7 +550,8 @@
                     }
                     
                     if (query) {
-                        handleQuickSearch(query, urlbar);
+                        let engineName = document.getElementById("urlbar-search-mode-indicator-title").innerText.trim();
+                        handleQuickSearch(query, engineName);
                     }
                     
                     return false;
@@ -455,10 +594,17 @@
     async function getSearchURLWithEngine(query, engineName) {
         let engines = await Services.search.getEngines();
         let engine = engines.find(e => e.name === engineName || (e._definedAliases && e._definedAliases.includes(engineName)));
-        console.log(engines);
-        if (!engine) engine = await Services.search.getDefault();
+
+        if (!engine) engine = currentSearchEngine || await Services.search.getDefault();
+        currentSearchEngine = engine
 
         let searchTerm = query.trim();
+        currentSearchTerm = searchTerm
+
+        // Small delay before updating selected engine
+        setTimeout(() => {
+          updateSelectedEngine()
+        }, 100);
         let submission = engine.getSubmission(searchTerm);
         return submission.uri.spec;
     }
@@ -497,13 +643,10 @@
     }
 
     // Process the search query and show in in-browser container
-    function handleQuickSearch(query, urlbar, fromContextMenu = false) {
+    function handleQuickSearch(query, engineName = null) {
         ensureServicesAvailable();
 
-        const contextMenuEngine = CONTEXT_MENU_ENGINE;
-        const searchPromise = fromContextMenu ? 
-            getSearchURLWithEngine(query, contextMenuEngine) : 
-            getSearchURLFromInput(query);
+        const searchPromise = getSearchURLWithEngine(query, engineName);
 
         searchPromise.then(searchUrl => {
             try {
@@ -520,7 +663,7 @@
                 container.classList.add('visible');
 
                 // Close the URL bar using Zen Browser's approach
-                closeUrlBar(urlbar);
+                closeUrlBar(document.getElementById("urlbar"));
 
                 // Add ESC key listener for this container
                 addEscKeyListener(container);
@@ -653,41 +796,37 @@
                     const container = createSearchContainer();
                     container.classList.add('visible');
                     
+                    const header = document.getElementById('quicksearch-header');
+                    const selectorWrapper = document.getElementById('quicksearch-engine-select-wrapper');
+                    const closeButton = container.querySelector('.quicksearch-close-button');
+
                     // Create a search input if it doesn't exist
                     let searchInput = document.getElementById('quicksearch-input');
-                    if (!searchInput) {
+                    if (!searchInput && header && selectorWrapper && closeButton) {
                         searchInput = document.createElement('input');
                         searchInput.id = 'quicksearch-input';
                         searchInput.type = 'text';
                         searchInput.placeholder = 'Enter search query...';
-                        searchInput.style.cssText = `
-                            width: 100%;
-                            padding: 10px;
-                            border: none;
-                            border-bottom: 1px solid #ccc;
-                            outline: none;
-                            font-size: 14px;
-                            box-sizing: border-box;
-                            background: transparent;
-                        `;
                         
                         searchInput.addEventListener('keydown', function(e) {
                             if (e.key === 'Enter') {
                                 const query = this.value.trim();
                                 if (query) {
-                                    // Remove the input and search
+                                    // Remove the input, restore selector, and search
+                                    selectorWrapper.hidden = false;
                                     this.remove();
-                                    handleQuickSearch(query, null, false);
+                                    handleQuickSearch(query);
                                 }
                             }
                         });
-                        
-                        container.insertBefore(searchInput, container.firstChild);
+
+                        selectorWrapper.hidden = true;
+                        header.insertBefore(searchInput, closeButton);
                     }
                     
                     // Auto-focus if enabled
                     const autoFocus = BEHAVIOR_AUTO_FOCUS;
-                    if (autoFocus) {
+                    if (autoFocus && searchInput) {
                         setTimeout(() => searchInput.focus(), 100);
                     }
                     
@@ -729,6 +868,12 @@
             if (searchInput) {
                 searchInput.remove();
             }
+
+            // Ensure selector is visible again
+            const selectorWrapper = document.getElementById('quicksearch-engine-select-wrapper');
+            if (selectorWrapper) {
+                selectorWrapper.hidden = false;
+            }
             
             // Remove the ESC key listener
             if (container._escKeyListener) {
@@ -759,7 +904,7 @@
     function createSearchContainer() {
         let container = document.getElementById('quicksearch-container');
         if (container) {
-            loadContainerDimensions();
+            // loadContainerDimensions();
             return container;
         }
         
@@ -767,15 +912,66 @@
         container = document.createElement('div');
         container.id = 'quicksearch-container';
         
-        // Container for the browser element
-        const browserContainer = document.createElement('div');
-        browserContainer.id = 'quicksearch-browser-container';
-        browserContainer.style.flex = '1';
-        browserContainer.style.width = '100%';
-        browserContainer.style.position = 'relative';
-        browserContainer.style.overflow = 'hidden';
-        
-        // Create floating close button
+        // Create header
+        const header = document.createElement('div');
+        header.id = 'quicksearch-header';
+
+        const quicksearchEngineWrapper = document.createElement('div');
+        quicksearchEngineWrapper.id = 'quicksearch-engine-select-wrapper';
+
+        const quicksearchEngineButton = document.createElement('div');
+        quicksearchEngineButton.id = 'quicksearch-engine-select';
+
+        const quicksearchOptions = document.createElement('div');
+        quicksearchOptions.id = 'quicksearch-engine-options';
+
+        quicksearchEngineWrapper.appendChild(quicksearchEngineButton);
+        quicksearchEngineWrapper.appendChild(quicksearchOptions);
+
+        quicksearchEngineButton.addEventListener('click', (e) => {
+          e.stopPropagation();  
+          quicksearchOptions.style.display = quicksearchOptions.style.display === 'block' ? 'none' : 'block';
+        });
+
+        document.addEventListener('click', () => {
+          quicksearchOptions.style.display = 'none';
+        });
+
+        Services.search.getEngines().then(engines => {
+            quicksearchOptions.innerHTML = '';
+            engines.forEach(engine => {
+                const option = document.createElement('div');
+                option.className = 'quicksearch-engine-option';
+
+                const img = getFaviconImg(engine)
+                option.appendChild(img);
+                option.appendChild(document.createTextNode(engine.name));
+
+                option.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                  if (currentSearchEngine && currentSearchEngine.name == engine.name) return
+                  currentSearchEngine = engine;
+                  quicksearchOptions.style.display = 'none';
+                  
+                  if (currentSearchTerm) {
+                    handleQuickSearch(currentSearchTerm, engine.name);
+                  }
+                });
+
+                quicksearchOptions.appendChild(option);
+            });
+
+            return Services.search.getDefault();
+        }).then(defaultEngine => {
+            if (!currentSearchEngine) {
+                currentSearchEngine = defaultEngine;
+                const img = getFaviconImg(currentSearchEngine)
+                quicksearchEngineButton.innerHTML = '';
+                quicksearchEngineButton.appendChild(img);
+                quicksearchEngineButton.appendChild(document.createTextNode(defaultEngine.name));
+            }
+        });
+
         const closeButton = document.createElement('button');
         closeButton.className = 'quicksearch-close-button';
         closeButton.innerHTML = '&#10005;'; // X symbol
@@ -784,6 +980,17 @@
             e.stopPropagation();
             closeQuickSearch(container);
         };
+
+        header.appendChild(quicksearchEngineWrapper);
+        header.appendChild(closeButton);
+
+        // Container for the browser element
+        const browserContainer = document.createElement('div');
+        browserContainer.id = 'quicksearch-browser-container';
+        browserContainer.style.flex = '1';
+        browserContainer.style.width = '100%';
+        browserContainer.style.position = 'relative';
+        browserContainer.style.overflow = 'hidden';
         
         // Create resizer element
         const resizer = document.createElement('div');
@@ -832,8 +1039,8 @@
         }
         
         // Assemble the elements
+        container.appendChild(header);
         container.appendChild(browserContainer);
-        container.appendChild(closeButton);
         container.appendChild(resizer);
         
         document.body.appendChild(container);
@@ -926,7 +1133,7 @@
         }
         
         if (selectedText && selectedText.trim()) {
-            handleQuickSearch(selectedText.trim(), null, true);
+            handleQuickSearch(selectedText.trim(), CONTEXT_MENU_ENGINE);
         }
     }
 

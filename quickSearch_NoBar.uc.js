@@ -65,6 +65,42 @@
 
     // --- End Preference Configuration ---
     
+    const googleFaviconAPI = (url) => {
+        try {
+            const hostName = new URL(url).hostname;
+            return `https://s2.googleusercontent.com/s2/favicons?domain_url=https://${hostName}&sz=32`;
+        } catch (e) {
+            return undefined; // Return undefined for invalid URLs
+        }
+    };
+
+    const getFaviconImg  =(engine)=>{ 
+      const img = document.createElement('img');
+      const thirdFallback = 'chrome://branding/content/icon32.png'
+      engine.getIconURL().then(url=>{
+        img.src = url || googleFaviconAPI(engine.getSubmission("test").uri.spec) || thirdFallback
+      }).catch( 
+        // fallback to google faviconAPI in case of error
+        img.src = googleFaviconAPI(engine.getSubmission("test").uri.spec) || thirdFallback 
+      )
+      img.src ='chrome://browser/content/zen-images/grain-bg.png'
+      img.alt = engine.name;
+      return img
+    }
+
+    let currentSearchEngine = null;
+    let currentSearchTerm = '';
+    const updateSelectedEngine = () =>{
+      if (!currentSearchEngine) return
+      const img = getFaviconImg(currentSearchEngine)
+      const quicksearchEngineButton = document.getElementById( 'quicksearch-engine-select' );
+      if (quicksearchEngineButton){
+        quicksearchEngineButton.innerHTML = '';
+        quicksearchEngineButton.appendChild(img);
+        quicksearchEngineButton.appendChild(document.createTextNode(currentSearchEngine.name));
+      }
+    }
+
     const injectCSS = (theme = 'dark', position = 'top-right', animationsEnabled = true) => {
         // Theme configurations
         const themes = {
@@ -262,7 +298,6 @@
                 justify-content: center;
                 color: ${currentTheme.closeBtnColor};
                 cursor: pointer;
-                margin-left: 8px;
                 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
                 transition: background-color 0.2s, transform 0.2s;
             }
@@ -271,14 +306,6 @@
                 background-color: ${currentTheme.closeBtnHoverBg};
                 transform: scale(1.1);
                 color: ${currentTheme.closeBtnHoverColor};
-            }
-            
-            .quicksearch-engine-indicator {
-                display: flex;
-                align-items: center;
-                padding: 0 8px;
-                font-size: 12px;
-                color: ${currentTheme.textColor === '#f0f0f0' ? '#aaa' : '#666'};
             }
             
             #quicksearch-resizer {
@@ -295,6 +322,62 @@
                 z-index: 10001;
                 transform: rotate(180deg);
             }
+
+            #quicksearch-engine-select-wrapper {
+              position: relative;
+              display: inline-block;
+              min-width: 150px;
+              font-size: 14px;
+            }
+
+            #quicksearch-engine-select {
+              flex: 1;
+              height: 36px;
+              border-radius: 18px;
+              border: none;
+              padding: 0 15px;
+              margin: 0 15px;
+              font-size: 14px;
+              background-color: ${currentTheme.searchBarInputBg};
+              color: ${currentTheme.textColor};
+              outline: none;
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              transition: background-color 0.2s;
+            }
+
+            #quicksearch-engine-options {
+              position: absolute;
+              top: 100%;
+              left: 0;
+              right: 0;
+              background-color: #1e1f1f;
+              border-radius: 5px;
+              max-height: 200px;
+              overflow-y: auto;
+              z-index: 1000;
+              display: none;
+            }
+
+            #quicksearch-engine-option {
+              padding: 6px 10px;
+              display: flex;
+              align-items: center;
+              cursor: pointer;
+              gap: 8px;
+            }
+
+            #quicksearch-engine-option:hover {
+              background-color: #333;
+            }
+
+            #quicksearch-engine-options img,
+            #quicksearch-engine-select-wrapper img {
+              width: 16px;
+              height: 16px;
+            }
+
             .z-index: 10000;
         `;
         
@@ -454,11 +537,11 @@
         addEscKeyListener(container);
     }
 
-    function handleQuickSearch(query, fromContextMenu = false) {
+    function handleQuickSearch(query, engineName = null) {
         ensureServicesAvailable();
 
-        const searchPromise = fromContextMenu ? 
-            getSearchURLWithEngine(query, CONTEXT_MENU_ENGINE) : 
+        const searchPromise = engineName ? 
+            getSearchURLWithEngine(query, engineName) : 
             getSearchURLFromInput(query);
 
         searchPromise.then(searchUrl => {
@@ -467,21 +550,6 @@
                 const browserContainer = document.getElementById('quicksearch-browser-container');
 
                 container.classList.add('expanded');
-
-                const engineIndicator = document.getElementById('quicksearch-engine-indicator');
-                if (engineIndicator) {
-                    Services.search.getEngines().then(engines => {
-                        let [prefix, ..._] = query.trim().split(/\s+/);
-                        let engine = engines.find(e =>
-                            e._definedAliases && e._definedAliases.includes(prefix)
-                        );
-
-                        if (!engine) {
-                            engine = Services.search.defaultEngine;
-                        }
-                        engineIndicator.textContent = engine.name;
-                    });
-                }
                 
                 while (browserContainer.firstChild) {
                     browserContainer.removeChild(browserContainer.firstChild);
@@ -642,10 +710,61 @@
         } catch (e) {
         }
         
-        const engineIndicator = document.createElement('div');
-        engineIndicator.id = 'quicksearch-engine-indicator';
-        engineIndicator.className = 'quicksearch-engine-indicator';
-        engineIndicator.textContent = 'Google';
+        const quicksearchEngineWrapper = document.createElement('div');
+        quicksearchEngineWrapper.id = 'quicksearch-engine-select-wrapper';
+
+        const quicksearchEngineButton = document.createElement('div');
+        quicksearchEngineButton.id = 'quicksearch-engine-select';
+
+        const quicksearchOptions = document.createElement('div');
+        quicksearchOptions.id = 'quicksearch-engine-options';
+
+        quicksearchEngineWrapper.appendChild(quicksearchEngineButton);
+        quicksearchEngineWrapper.appendChild(quicksearchOptions);
+        searchBarContainer.appendChild(quicksearchEngineWrapper);
+
+        quicksearchEngineButton.addEventListener('click', (e) => {
+          e.stopPropagation();  
+          quicksearchOptions.style.display = quicksearchOptions.style.display === 'block' ? 'none' : 'block';
+        });
+
+        document.addEventListener('click', () => {
+          quicksearchOptions.style.display = 'none';
+        });
+
+        Services.search.getEngines().then(engines => {
+          engines.forEach(engine => {
+            const option = document.createElement('div');
+            option.id = 'quicksearch-engine-option';
+
+            const img = getFaviconImg(engine)
+
+            option.appendChild(img);
+            option.appendChild(document.createTextNode(engine.name));
+
+            option.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (currentSearchEngine && currentSearchEngine.name == engine.name) return;
+              currentSearchEngine = engine;
+              updateSelectedEngine()
+              quicksearchOptions.style.display = 'none';
+              if (currentSearchTerm) {
+                handleQuickSearch(currentSearchTerm, engine.name);
+              }
+            });
+
+            quicksearchOptions.appendChild(option);
+          });
+
+          return Services.search.getDefault();
+        }).then(defaultEngine => {
+          currentSearchEngine = defaultEngine;
+          const img = getFaviconImg(defaultEngine)
+
+          quicksearchEngineButton.innerHTML = '';
+          quicksearchEngineButton.appendChild(img);
+          quicksearchEngineButton.appendChild(document.createTextNode(defaultEngine.name));
+        });
         
         const closeButton = document.createElement('button');
         closeButton.className = 'quicksearch-close-button';
@@ -664,7 +783,7 @@
         });
         
         searchBarContainer.appendChild(searchBar);
-        searchBarContainer.appendChild(engineIndicator);
+        searchBarContainer.appendChild(quicksearchEngineWrapper);
         searchBarContainer.appendChild(closeButton);
         
         const browserContainer = document.createElement('div');
@@ -765,12 +884,15 @@
                 e._definedAliases && e._definedAliases.includes(prefix)
             );
 
-            // If no alias matched, fallback to default engine
+            // If no alias matched, fallback to selected engine
             if (!engine) {
-                engine = Services.search.defaultEngine;
+                engine = currentSearchEngine || Services.search.defaultEngine;
                 searchTerm = input; // Whole input is the term
+            }else{
+                currentSearchEngine = engine
             }
 
+            currentSearchTerm = searchTerm
             let submission = engine.getSubmission(searchTerm);
             return submission.uri.spec;
         });
@@ -782,6 +904,14 @@
         let engine = engines.find(e => e.name === engineName || (e._definedAliases && e._definedAliases.includes(engineName)));
         if (!engine) engine = await Services.search.getDefault();
         let searchTerm = query.trim();
+        currentSearchEngine = engine
+
+        // Small delay before updating selected engine
+        setTimeout(() => {
+          updateSelectedEngine()
+        }, 100);
+
+        currentSearchTerm = searchTerm
         let submission = engine.getSubmission(searchTerm);
         return submission.uri.spec;
     }
@@ -846,7 +976,7 @@
             // Show the container first, then perform the search
             showQuickSearchContainer();
             setTimeout(() => {
-                handleQuickSearch(selectedText.trim(), true);
+                handleQuickSearch(selectedText.trim(), CONTEXT_MENU_ENGINE);
             }, 100);
         }
     }
@@ -870,4 +1000,4 @@
     }
 
     setTimeout(init, 1000);
-})();
+})()

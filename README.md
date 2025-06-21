@@ -24,6 +24,7 @@ https://github.com/user-attachments/assets/827215fc-e985-4f71-8646-6e3a6b7e624b
 - Support for search engine prefixes (@google, @ddg, @bing, etc.)
 - Context menu integration for selected text searches
 - Global keyboard shortcut for instant access
+- Dynamic search engine selector for quickly changing search engine
 
 ### 🎨 **Customizable Interface**
 - **Multiple themes**: Dark, light, and auto (system-based)
