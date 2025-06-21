@@ -9,6 +9,8 @@
     const CONTEXT_MENU_ACCESS_KEY_PREF = "extensions.quicksearch.context_menu.access_key";
     const CONTAINER_POSITION_PREF = "extensions.quicksearch.container.position";
     const CONTAINER_THEME_PREF = "extensions.quicksearch.container.theme";
+    const CONTAINER_WIDTH_PREF = "extensions.quicksearch.container.width";
+    const CONTAINER_HEIGHT_PREF = "extensions.quicksearch.container.height";
     const BEHAVIOR_ANIMATION_ENABLED_PREF = "extensions.quicksearch.behavior.animation_enabled";
     const BEHAVIOR_REMEMBER_SIZE_PREF = "extensions.quicksearch.behavior.remember_size";
     const BEHAVIOR_AUTO_FOCUS_PREF = "extensions.quicksearch.behavior.auto_focus";
@@ -57,6 +59,8 @@
     const CONTEXT_MENU_ACCESS_KEY = getPref(CONTEXT_MENU_ACCESS_KEY_PREF, "Q");
     const CONTAINER_POSITION = getPref(CONTAINER_POSITION_PREF, "top-right");
     const CONTAINER_THEME = getPref(CONTAINER_THEME_PREF, "dark");
+    const CONTAINER_WIDTH = getPref(CONTAINER_WIDTH_PREF, 550);
+    const CONTAINER_HEIGHT = getPref(CONTAINER_HEIGHT_PREF, 300);
     const BEHAVIOR_ANIMATION_ENABLED = getPref(BEHAVIOR_ANIMATION_ENABLED_PREF, true);
     const BEHAVIOR_REMEMBER_SIZE = getPref(BEHAVIOR_REMEMBER_SIZE_PREF, true);
     const BEHAVIOR_AUTO_FOCUS = getPref(BEHAVIOR_AUTO_FOCUS_PREF, true);
@@ -897,16 +901,16 @@
     }
     
         function saveContainerDimensions(width, height) {
-        // Container dimensions are no longer saved - using fixed default size
-        console.log('QuickSearch: Container dimensions not saved (width/height settings removed)');
-    }
+          if (BEHAVIOR_REMEMBER_SIZE) {
+            setPref(CONTAINER_WIDTH_PREF, width)
+          setPref(CONTAINER_HEIGHT_PREF, height)
+          }
+        }
 
-        function loadContainerDimensions() {
-        // Use fixed default dimensions
-        const width = 550;
-        const height = 300;
-
+      function loadContainerDimensions() {
         const container = document.getElementById('quicksearch-container');
+        const width  = CONTAINER_WIDTH 
+        const height = CONTAINER_HEIGHT
         if (container) {
             container.style.width = `${width}px`;
             container.style.height = `${height}px`;
