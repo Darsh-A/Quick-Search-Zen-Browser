@@ -66,17 +66,33 @@
     // --- End Preference Configuration ---
     
     const googleFaviconAPI = (url) => {
-        const hostName = new URL(url).hostname;
-        return `https://s2.googleusercontent.com/s2/favicons?domain_url=https://${hostName}&sz=32`;
+        try {
+            const hostName = new URL(url).hostname;
+            return `https://s2.googleusercontent.com/s2/favicons?domain_url=https://${hostName}&sz=32`;
+        } catch (e) {
+            return undefined; // Return undefined for invalid URLs
+        }
     };
+
+    const getFaviconImg  =(engine)=>{ 
+      const img = document.createElement('img');
+      const thirdFallback = 'chrome://branding/content/icon32.png'
+      engine.getIconURL().then(url=>{
+        img.src = url || googleFaviconAPI(engine.getSubmission("test").uri.spec) || thirdFallback
+      }).catch( 
+        // fallback to google faviconAPI in case of error
+        img.src = googleFaviconAPI(engine.getSubmission("test").uri.spec) || thirdFallback 
+      )
+      img.src ='chrome://browser/content/zen-images/grain-bg.png'
+      img.alt = engine.name;
+      return img
+    }
+
     let currentSearchEngine = null;
     let currentSearchTerm = '';
     const updateSelectedEngine = () =>{
       if (!currentSearchEngine) return
-      const faviconURL = currentSearchEngine.iconURI ? currentSearchEngine.iconURI.spec : googleFaviconAPI(currentSearchEngine.getSubmission("test").uri.spec);
-      const img = document.createElement('img');
-      img.src = faviconURL;
-      img.alt = currentSearchEngine.name;
+      const img = getFaviconImg(currentSearchEngine)
       const quicksearchEngineButton = document.getElementById( 'quicksearch-engine-select' );
       if (quicksearchEngineButton){
         quicksearchEngineButton.innerHTML = '';
@@ -721,10 +737,7 @@
             const option = document.createElement('div');
             option.id = 'quicksearch-engine-option';
 
-            const faviconURL = googleFaviconAPI(engine.getSubmission("test").uri.spec);
-            const img = document.createElement('img');
-            img.src = faviconURL;
-            img.alt = engine.name;
+            const img = getFaviconImg(engine)
 
             option.appendChild(img);
             option.appendChild(document.createTextNode(engine.name));
@@ -732,10 +745,8 @@
             option.addEventListener('click', (e) => {
               e.stopPropagation();
               if (currentSearchEngine && currentSearchEngine.name == engine.name) return;
-              quicksearchEngineButton.innerHTML = '';
-              quicksearchEngineButton.appendChild(img.cloneNode());
-              quicksearchEngineButton.appendChild(document.createTextNode(engine.name));
               currentSearchEngine = engine;
+              updateSelectedEngine()
               quicksearchOptions.style.display = 'none';
               if (currentSearchTerm) {
                 handleQuickSearch(currentSearchTerm, engine.name);
@@ -748,10 +759,7 @@
           return Services.search.getDefault();
         }).then(defaultEngine => {
           currentSearchEngine = defaultEngine;
-          const faviconURL = googleFaviconAPI(defaultEngine.getSubmission("test").uri.spec);
-          const img = document.createElement('img');
-          img.src = faviconURL;
-          img.alt = defaultEngine.name;
+          const img = getFaviconImg(defaultEngine)
 
           quicksearchEngineButton.innerHTML = '';
           quicksearchEngineButton.appendChild(img);

@@ -70,17 +70,29 @@
             const hostName = new URL(url).hostname;
             return `https://s2.googleusercontent.com/s2/favicons?domain_url=https://${hostName}&sz=32`;
         } catch (e) {
-            return ''; // Return empty string for invalid URLs
+            return undefined; // Return undefined for invalid URLs
         }
     };
+
+    const getFaviconImg  =(engine)=>{ 
+      const img = document.createElement('img');
+      const thirdFallback = 'chrome://branding/content/icon32.png'
+      engine.getIconURL().then(url=>{
+        img.src = url || googleFaviconAPI(engine.getSubmission("test").uri.spec) || thirdFallback
+      }).catch( 
+        // fallback to google faviconAPI in case of error
+        img.src = googleFaviconAPI(engine.getSubmission("test").uri.spec) || thirdFallback 
+      )
+      img.src ='chrome://browser/content/zen-images/grain-bg.png'
+      img.alt = engine.name;
+      return img
+    }
+
     let currentSearchEngine = null;
     let currentSearchTerm = '';
     const updateSelectedEngine = () =>{
       if (!currentSearchEngine) return
-      const faviconURL = currentSearchEngine.iconURI ? currentSearchEngine.iconURI.spec : googleFaviconAPI(currentSearchEngine.getSubmission("test").uri.spec);
-      const img = document.createElement('img');
-      img.src = faviconURL;
-      img.alt = currentSearchEngine.name;
+      const img = getFaviconImg(currentSearchEngine)
       const quicksearchEngineButton = document.getElementById( 'quicksearch-engine-select' );
       if (quicksearchEngineButton){
         quicksearchEngineButton.innerHTML = '';
@@ -931,11 +943,7 @@
                 const option = document.createElement('div');
                 option.className = 'quicksearch-engine-option';
 
-                const faviconURL = engine.iconURI ? engine.iconURI.spec : googleFaviconAPI(engine.getSubmission("test").uri.spec);
-                const img = document.createElement('img');
-                img.src = faviconURL;
-                img.alt = engine.name;
-
+                const img = getFaviconImg(engine)
                 option.appendChild(img);
                 option.appendChild(document.createTextNode(engine.name));
 
@@ -957,11 +965,7 @@
         }).then(defaultEngine => {
             if (!currentSearchEngine) {
                 currentSearchEngine = defaultEngine;
-                const faviconURL = defaultEngine.iconURI ? defaultEngine.iconURI.spec : googleFaviconAPI(defaultEngine.getSubmission("test").uri.spec);
-                const img = document.createElement('img');
-                img.src = faviconURL;
-                img.alt = defaultEngine.name;
-
+                const img = getFaviconImg(currentSearchEngine)
                 quicksearchEngineButton.innerHTML = '';
                 quicksearchEngineButton.appendChild(img);
                 quicksearchEngineButton.appendChild(document.createTextNode(defaultEngine.name));
