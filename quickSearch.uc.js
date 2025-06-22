@@ -57,7 +57,7 @@
     const CONTEXT_MENU_ENABLED = getPref(CONTEXT_MENU_ENABLED_PREF, true);
     const CONTEXT_MENU_ENGINE = getPref(CONTEXT_MENU_ENGINE_PREF, "@ddg");
     const CONTEXT_MENU_ACCESS_KEY = getPref(CONTEXT_MENU_ACCESS_KEY_PREF, "Q");
-    const CONTAINER_POSITION = getPref(CONTAINER_POSITION_PREF, "top-right");
+    let CONTAINER_POSITION = getPref(CONTAINER_POSITION_PREF, "top-right");
     const CONTAINER_THEME = getPref(CONTAINER_THEME_PREF, "dark");
     const CONTAINER_WIDTH = getPref(CONTAINER_WIDTH_PREF, 550);
     const CONTAINER_HEIGHT = getPref(CONTAINER_HEIGHT_PREF, 300);
@@ -87,7 +87,6 @@
         // fallback to google faviconAPI in case of error
         img.src = googleFaviconAPI(engine.getSubmission("test").uri.spec) || thirdFallback 
       )
-      img.src ='chrome://browser/content/zen-images/grain-bg.png'
       img.alt = engine.name;
       return img
     }
@@ -104,6 +103,15 @@
         quicksearchEngineButton.appendChild(document.createTextNode(currentSearchEngine.name));
       }
     }
+
+    // Global definition for resizer styles to be used dynamically
+    const resize_habdle_styles = {
+        'top-left': { top: 'auto', left: 'auto', right: '0', bottom: '0', transform: 'rotate(90deg)', cursor: 'se-resize' },
+        'center': { top: 'auto', left: 'auto', right: '0', bottom: '0', transform: 'rotate(90deg)', cursor: 'se-resize' },
+        'top-right': { top: 'auto', right: 'auto', left: '0', bottom: '0', transform: 'rotate(180deg)', cursor: 'sw-resize' },
+        'bottom-left': { bottom: 'auto', left: 'auto', top: '0', right: '0', transform: 'rotate(0deg)', cursor: 'ne-resize' },
+        'bottom-right': { bottom: 'auto', right: 'auto', top: '0', left: '0', transform: 'rotate(270deg)', cursor: 'nw-resize' },
+    };
 
     // Create and inject CSS for the search container
     const injectCSS = (theme = 'dark', position = 'top-right', animationsEnabled = true) => {
@@ -155,27 +163,7 @@
         };
 
         const currentTheme = themes[theme] || themes.dark;
-
-        // Position configurations
-        const positions = {
-            'top-right': { top: '10px', right: '10px', left: 'auto', bottom: 'auto' },
-            'top-left': { top: '10px', left: '10px', right: 'auto', bottom: 'auto' },
-            'center': { top: '50%', left: '50%', right: 'auto', bottom: 'auto', transform: 'translate(-50%, -50%)' },
-            'bottom-right': { bottom: '10px', right: '10px', top: 'auto', left: 'auto' },
-            'bottom-left': { bottom: '10px', left: '10px', top: 'auto', right: 'auto' }
-        };
-
-        const resizeHandleStyles = {
-            'top-left': { top: 'auto', left: 'auto', right: '0', bottom: '0', transform: 'rotate(90deg)', cursor: 'se-resize' },
-            'center': { top: 'auto', left: 'auto', right: '0', bottom: '0', transform: 'rotate(90deg)', cursor: 'se-resize' },
-            'top-right': { top: 'auto', right: 'auto', left: '0', bottom: '0', transform: 'rotate(180deg)', cursor: 'sw-resize' },
-            'bottom-left': { bottom: 'auto', left: 'auto', top: '0', right: '0', transform: 'rotate(0deg)', cursor: 'ne-resize' },
-            'bottom-right': { bottom: 'auto', right: 'auto', top: '0', left: '0', transform: 'rotate(270deg)', cursor: 'nw-resize' },
-        };
         
-        const currentResizeHandleStyles = resizeHandleStyles[position] || resizeHandleStyles['top-right'];
-        const currentPosition = positions[position] || positions['top-right'];
-
         const css = `
             @keyframes quicksearchSlideIn {
                 0% {
@@ -207,11 +195,6 @@
             
             #quicksearch-container {
                 position: fixed;
-                top: ${currentPosition.top};
-                right: ${currentPosition.right};
-                left: ${currentPosition.left};
-                bottom: ${currentPosition.bottom};
-                ${currentPosition.transform ? `transform: ${currentPosition.transform};` : ''}
                 width: 550px;
                 min-width: 200px;
                 height: 300px;
@@ -252,6 +235,7 @@
                 user-select: none;
                 -moz-user-select: none;
                 gap: 8px;
+                cursor: grab;
             }
 
             #quicksearch-header-title {
@@ -324,12 +308,6 @@
               border-width: 0 16px 16px 0;
               border-color: transparent #fff transparent transparent;
               z-index: 10001;
-              top: ${currentResizeHandleStyles.top};
-              right: ${currentResizeHandleStyles.right};
-              left: ${currentResizeHandleStyles.left};
-              bottom: ${currentResizeHandleStyles.bottom};
-              cursor: ${currentResizeHandleStyles.cursor};
-              transform: ${currentResizeHandleStyles.transform};
             }
 
             #quicksearch-engine-select-wrapper {
@@ -917,11 +895,106 @@
         }
     }
 
+    // Helper to apply position styles to container and resizer
+     function applyContainerPosition(positionName) {
+        let container = document.getElementById('quicksearch-container');
+        const resizer = document.getElementById('quicksearch-resizer');
+        const positions = {
+            'top-right': { top: '10px', right: '10px', left: 'auto', bottom: 'auto' },
+            'top-left': { top: '10px', left: '10px', right: 'auto', bottom: 'auto' },
+            'center': { top: '50%', left: '50%', right: 'auto', bottom: 'auto', transform: 'translate(-50%, -50%)' },
+            'bottom-right': { bottom: '10px', right: '10px', top: 'auto', left: 'auto' },
+            'bottom-left': { bottom: '10px', left: '10px', top: 'auto', right: 'auto' }
+        };
+
+        const targetPosition = positions[positionName] || positions['top-right'];
+
+        // Apply new properties to container
+        container.style.top = targetPosition.top;
+        container.style.right = targetPosition.right;
+        container.style.left = targetPosition.left;
+        container.style.bottom = targetPosition.bottom;
+        
+        if (positionName === 'center') {
+            container.style.transform = targetPosition.transform;
+        } else {
+            container.style.removeProperty('transform');
+        }
+
+        // Apply styles to resizer element based on new position
+        if (resizer) {
+            const resizerStyles = resize_habdle_styles[positionName] || resize_habdle_styles['top-right'];
+            resizer.style.inset = 'auto';
+            resizer.style.top = resizerStyles.top;
+            resizer.style.right = resizerStyles.right;
+            resizer.style.left = resizerStyles.left;
+            resizer.style.bottom = resizerStyles.bottom;
+            resizer.style.cursor = resizerStyles.cursor;
+            resizer.style.transform = resizerStyles.transform;
+        }
+    }
+
+    // Function to snap container to the closest corner or center
+    function snapToClosestCorner() {
+        const container = document.getElementById('quicksearch-container');
+        const rect = container.getBoundingClientRect();
+        const currentX = rect.left;
+        const currentY = rect.top;
+        const containerWidth = rect.width;
+        const containerHeight = rect.height;
+
+        const snapPositions = {
+            'top-left': { top: '10px', left: '10px' },
+            'top-right': { top: '10px', right: '10px' },
+            'center': { top: '50%', left: '50%' },
+            'bottom-left': { bottom: '10px', left: '10px' },
+            'bottom-right': { bottom: '10px', right: '10px' }
+        };
+
+        let closestPointName = '';
+        let minDistance = Infinity;
+
+        for (const name in snapPositions) {
+            const p = snapPositions[name];
+            let targetX, targetY;
+
+            if (name === 'center') {
+              targetX = (window.innerWidth / 2) - (containerWidth / 2);
+              targetY = (window.innerHeight / 2) - (containerHeight / 2);
+            } else {
+              if (p.left) {
+                  targetX = parseInt(p.left, 10);
+              } else if (p.right) {
+                  targetX = window.innerWidth - containerWidth - parseInt(p.right, 10);
+              }
+
+              if (p.top) {
+                  targetY = parseInt(p.top, 10);
+              } else if (p.bottom) {
+                  targetY = window.innerHeight - containerHeight - parseInt(p.bottom, 10);
+              }
+            }
+
+            const distance = Math.sqrt(Math.pow(currentX - targetX, 2) + Math.pow(currentY - targetY, 2));
+
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestPointName = name;
+            }
+        }
+        applyContainerPosition(closestPointName);
+        CONTAINER_POSITION = closestPointName;
+        setPref(CONTAINER_POSITION_PREF, closestPointName);
+    }
+
     // Create and initialize the search container
     function createSearchContainer() {
         let container = document.getElementById('quicksearch-container');
+        let resizer = document.getElementById('quicksearch-resizer');
+
         if (container) {
-            // loadContainerDimensions();
+            // Apply current position preference in case it changed from external source
+            applyContainerPosition(CONTAINER_POSITION );
             return container;
         }
         
@@ -1010,7 +1083,7 @@
         browserContainer.style.overflow = 'hidden';
         
         // Create resizer element
-        const resizer = document.createElement('div');
+        resizer = document.createElement('div'); // Assign to outer scope 'resizer' variable
         resizer.id = 'quicksearch-resizer';
         
         let isResizing = false;
@@ -1061,7 +1134,75 @@
         container.appendChild(resizer);
         
         document.body.appendChild(container);
+
+        // Apply initial position based on preference for container and resizer
+        applyContainerPosition( CONTAINER_POSITION);
         loadContainerDimensions();
+
+        // Drag functionality for header
+        let isDragging = false;
+        let initialMouseX, initialMouseY;
+        let initialContainerX, initialContainerY;
+
+        const doDrag = (e) => {
+            if (!isDragging) return;
+
+            let newX = initialContainerX + (e.clientX - initialMouseX);
+            let newY = initialContainerY + (e.clientY - initialMouseY);
+
+            // Keep container within viewport boundaries
+            const minX = 10;
+            const minY = 10;
+            const maxX = window.innerWidth - container.offsetWidth - 10;
+            const maxY = window.innerHeight - container.offsetHeight - 10;
+
+            newX = Math.max(minX, Math.min(newX, maxX));
+            newY = Math.max(minY, Math.min(newY, maxY));
+
+            container.style.left = `${newX}px`;
+            container.style.top = `${newY}px`;
+            e.preventDefault(); // Prevent text selection during drag
+        };
+
+        const stopDrag = () => {
+            if (!isDragging) return;
+
+            isDragging = false;
+            document.removeEventListener('mousemove', doDrag);
+            document.removeEventListener('mouseup', stopDrag);
+            header.style.cursor = 'grab'; // Reset cursor
+
+            snapToClosestCorner(); 
+        };
+
+        header.addEventListener('mousedown', function(e) {
+            // Only drag with left mouse button
+            if (e.button !== 0) return; 
+
+            isDragging = true;
+            initialMouseX = e.clientX;
+            initialMouseY = e.clientY;
+            
+            const rect = container.getBoundingClientRect();
+            initialContainerX = rect.left; // This is the computed pixel value
+            initialContainerY = rect.top; // This is the computed pixel value
+
+            // Remove existing positioning properties to allow direct top/left manipulation
+            container.style.removeProperty('right');
+            container.style.removeProperty('bottom');
+            container.style.removeProperty('transform');
+            
+            // Set position to current pixel values to prevent jump when transform is removed
+            container.style.left = `${initialContainerX}px`;
+            container.style.top = `${initialContainerY}px`;
+
+            header.style.cursor = 'grabbing';
+            document.addEventListener('mousemove', doDrag);
+            document.addEventListener('mouseup', stopDrag);
+
+            e.preventDefault();
+        });
+        
         return container;
     }
 
