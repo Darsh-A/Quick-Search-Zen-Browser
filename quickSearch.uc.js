@@ -235,7 +235,17 @@
                 user-select: none;
                 -moz-user-select: none;
                 gap: 8px;
+                position: relative;
+            }
+
+            #quicksearch-drag-handle {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
                 cursor: grab;
+                z-index: 0;
             }
 
             #quicksearch-header-title {
@@ -253,6 +263,7 @@
                 background-color: ${currentTheme.containerBg};
                 color: ${currentTheme.headerColor};
                 border-radius: 4px;
+                z-index: 1;
             }
             
             #quicksearch-browser-container {
@@ -289,6 +300,8 @@
                 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
                 transition: background-color 0.2s, transform 0.2s;
                 flex-shrink: 0;
+                position: relative;
+                z-index: 1;
             }
             
             .quicksearch-close-button:hover {
@@ -317,6 +330,8 @@
               font-size: 14px;
               flex-grow: 1;
               min-width: 0;
+              max-width:140px;
+              z-index: 1;
             }
 
             #quicksearch-engine-select {
@@ -330,7 +345,6 @@
               color: ${currentTheme.headerColor};
               transition: background-color 0.2s;
               width: 100%;
-              max-width:140px;
               text-align: left;
               overflow: hidden;
               white-space: nowrap;
@@ -1009,6 +1023,9 @@
         const header = document.createElement('div');
         header.id = 'quicksearch-header';
 
+        const dragHandle = document.createElement('div');
+        dragHandle.id = 'quicksearch-drag-handle';
+
         const quicksearchEngineWrapper = document.createElement('div');
         quicksearchEngineWrapper.id = 'quicksearch-engine-select-wrapper';
 
@@ -1074,6 +1091,7 @@
             closeQuickSearch(container);
         };
 
+        header.appendChild(dragHandle);
         header.appendChild(quicksearchEngineWrapper);
         header.appendChild(closeButton);
 
@@ -1173,12 +1191,12 @@
             isDragging = false;
             document.removeEventListener('mousemove', doDrag);
             document.removeEventListener('mouseup', stopDrag);
-            header.style.cursor = 'grab'; // Reset cursor
+            dragHandle.style.cursor = 'grab'; // Reset cursor
 
             snapToClosestCorner(); 
         };
 
-        header.addEventListener('mousedown', function(e) {
+        dragHandle.addEventListener('mousedown', function(e) {
             // Only drag with left mouse button
             if (e.button !== 0) return; 
 
@@ -1194,7 +1212,7 @@
             container.style.left = `${initialContainerX}px`;
             container.style.top = `${initialContainerY}px`;
 
-            header.style.cursor = 'grabbing';
+            dragHandle.style.cursor = 'grabbing';
             document.addEventListener('mousemove', doDrag);
             document.addEventListener('mouseup', stopDrag);
 

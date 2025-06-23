@@ -238,7 +238,17 @@
                 align-items: center;
                 min-height: 56px;
                 box-sizing: border-box;
+                position: relative;
+            }
+
+            #quicksearch-drag-handle {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
                 cursor: grab;
+                z-index: 0;
             }
             
             #quicksearch-searchbar {
@@ -252,6 +262,8 @@
                 color: ${currentTheme.textColor};
                 outline: none;
                 transition: background-color 0.2s;
+                position: relative;
+                z-index: 1;
             }
             
             #quicksearch-searchbar:focus {
@@ -298,6 +310,8 @@
                 cursor: pointer;
                 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
                 transition: background-color 0.2s, transform 0.2s;
+                position: relative;
+                z-index: 1;
             }
             
             .quicksearch-close-button:hover {
@@ -324,6 +338,7 @@
               display: inline-block;
               min-width: 150px;
               font-size: 14px;
+              z-index: 1;
             }
 
             #quicksearch-engine-select {
@@ -786,6 +801,9 @@
         const searchBarContainer = document.createElement('div');
         searchBarContainer.id = 'quicksearch-searchbar-container';
         
+        const dragHandle = document.createElement('div');
+        dragHandle.id = 'quicksearch-drag-handle';
+
         const searchBar = document.createElement('input');
         searchBar.id = 'quicksearch-searchbar';
         searchBar.type = 'text';
@@ -871,6 +889,7 @@
             }
         });
         
+        searchBarContainer.appendChild(dragHandle);
         searchBarContainer.appendChild(searchBar);
         searchBarContainer.appendChild(quicksearchEngineWrapper);
         searchBarContainer.appendChild(closeButton);
@@ -985,12 +1004,12 @@
             isDragging = false;
             document.removeEventListener('mousemove', doDrag);
             document.removeEventListener('mouseup', stopDrag);
-            searchBarContainer.style.cursor = 'grab'; // Reset cursor
+            dragHandle.style.cursor = 'grab'; // Reset cursor
 
             snapToClosestCorner();
         };
 
-        searchBarContainer.addEventListener('mousedown', function(e) {
+        dragHandle.addEventListener('mousedown', function(e) {
             // Only drag with left mouse button
             if (e.button !== 0) return; 
 
@@ -1006,7 +1025,7 @@
             container.style.left = `${initialContainerX}px`;
             container.style.top = `${initialContainerY}px`;
 
-            searchBarContainer.style.cursor = 'grabbing';
+            dragHandle.style.cursor = 'grabbing';
             document.addEventListener('mousemove', doDrag);
             document.addEventListener('mouseup', stopDrag);
 
