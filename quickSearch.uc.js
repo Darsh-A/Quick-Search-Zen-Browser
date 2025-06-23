@@ -14,6 +14,7 @@
     const BEHAVIOR_ANIMATION_ENABLED_PREF = "extensions.quicksearch.behavior.animation_enabled";
     const BEHAVIOR_REMEMBER_SIZE_PREF = "extensions.quicksearch.behavior.remember_size";
     const BEHAVIOR_AUTO_FOCUS_PREF = "extensions.quicksearch.behavior.auto_focus";
+    const BEHAVIOR_DRAG_RESIZE_ENABLED_PREF = "extensions.quicksearch.behavior.drag_resize_enabled";
     const SHORTCUTS_TOGGLE_KEY_PREF = "extensions.quicksearch.shortcuts.toggle_key";
     const SHORTCUTS_ESCAPE_CLOSES_PREF = "extensions.quicksearch.shortcuts.escape_closes";
 
@@ -64,6 +65,7 @@
     const BEHAVIOR_ANIMATION_ENABLED = getPref(BEHAVIOR_ANIMATION_ENABLED_PREF, true);
     const BEHAVIOR_REMEMBER_SIZE = getPref(BEHAVIOR_REMEMBER_SIZE_PREF, true);
     const BEHAVIOR_AUTO_FOCUS = getPref(BEHAVIOR_AUTO_FOCUS_PREF, true);
+    const BEHAVIOR_DRAG_RESIZE_ENABLED = getPref(BEHAVIOR_DRAG_RESIZE_ENABLED_PREF, true);
     const SHORTCUTS_TOGGLE_KEY = getPref(SHORTCUTS_TOGGLE_KEY_PREF, "Ctrl+Shift+Q");
     const SHORTCUTS_ESCAPE_CLOSES = getPref(SHORTCUTS_ESCAPE_CLOSES_PREF, true);
 
@@ -1023,8 +1025,11 @@
         const header = document.createElement('div');
         header.id = 'quicksearch-header';
 
-        const dragHandle = document.createElement('div');
-        dragHandle.id = 'quicksearch-drag-handle';
+        let dragHandle;
+        if (BEHAVIOR_DRAG_RESIZE_ENABLED) {
+            dragHandle = document.createElement('div');
+            dragHandle.id = 'quicksearch-drag-handle';
+        }
 
         const quicksearchEngineWrapper = document.createElement('div');
         quicksearchEngineWrapper.id = 'quicksearch-engine-select-wrapper';
@@ -1091,7 +1096,9 @@
             closeQuickSearch(container);
         };
 
-        header.appendChild(dragHandle);
+        if (BEHAVIOR_DRAG_RESIZE_ENABLED) {
+            header.appendChild(dragHandle);
+        }
         header.appendChild(quicksearchEngineWrapper);
         header.appendChild(closeButton);
 
@@ -1104,55 +1111,59 @@
         browserContainer.style.overflow = 'hidden';
         
         // Create resizer element
-        resizer = document.createElement('div'); // Assign to outer scope 'resizer' variable
-        resizer.id = 'quicksearch-resizer';
-        
-        let isResizing = false;
-        let startX, startY, startWidth, startHeight;
-        
-        resizer.addEventListener('mousedown', function(e) {
-            isResizing = true;
-            startX = e.clientX;
-            startY = e.clientY;
-            startWidth = container.offsetWidth;
-            startHeight = container.offsetHeight;
-            document.addEventListener('mousemove', doResize);
-            document.addEventListener('mouseup', stopResize);
-        });
-        
-        function doResize(e) {
-            if (!isResizing) return;
+        if (BEHAVIOR_DRAG_RESIZE_ENABLED) {
+            resizer = document.createElement('div'); // Assign to outer scope 'resizer' variable
+            resizer.id = 'quicksearch-resizer';
             
-            let width = startWidth + (e.clientX - startX) * (CONTAINER_POSITION.includes('right') ? -1 : 1);
-            let height = startHeight + (e.clientY - startY) * (CONTAINER_POSITION.includes('bottom') ? -1 : 1);
+            let isResizing = false;
+            let startX, startY, startWidth, startHeight;
             
-            // Enforce minimum dimensions
-            width = Math.max(width, 200);
-            height = Math.max(height, 150);
+            resizer.addEventListener('mousedown', function(e) {
+                isResizing = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                startWidth = container.offsetWidth;
+                startHeight = container.offsetHeight;
+                document.addEventListener('mousemove', doResize);
+                document.addEventListener('mouseup', stopResize);
+            });
+            
+            function doResize(e) {
+                if (!isResizing) return;
+                
+                let width = startWidth + (e.clientX - startX) * (CONTAINER_POSITION.includes('right') ? -1 : 1);
+                let height = startHeight + (e.clientY - startY) * (CONTAINER_POSITION.includes('bottom') ? -1 : 1);
+                
+                // Enforce minimum dimensions
+                width = Math.max(width, 200);
+                height = Math.max(height, 150);
 
-            // Enforce maximum dimensions
-            width = Math.min(width, window.innerWidth * 0.7);
-            height = Math.min(height, window.innerHeight * 0.7);
+                // Enforce maximum dimensions
+                width = Math.min(width, window.innerWidth * 0.7);
+                height = Math.min(height, window.innerHeight * 0.7);
+                
+                container.style.width = width + 'px';
+                container.style.height = height + 'px';
+            }
             
-            container.style.width = width + 'px';
-            container.style.height = height + 'px';
-        }
-        
-        function stopResize() {
-            if (!isResizing) return;
-            
-            isResizing = false;
-            document.removeEventListener('mousemove', doResize);
-            document.removeEventListener('mouseup', stopResize);
-            
-            // Save the new dimensions
-            saveContainerDimensions(container.offsetWidth, container.offsetHeight);
+            function stopResize() {
+                if (!isResizing) return;
+                
+                isResizing = false;
+                document.removeEventListener('mousemove', doResize);
+                document.removeEventListener('mouseup', stopResize);
+                
+                // Save the new dimensions
+                saveContainerDimensions(container.offsetWidth, container.offsetHeight);
+            }
         }
         
         // Assemble the elements
         container.appendChild(header);
         container.appendChild(browserContainer);
-        container.appendChild(resizer);
+        if (BEHAVIOR_DRAG_RESIZE_ENABLED) {
+            container.appendChild(resizer);
+        }
         
         document.body.appendChild(container);
 
@@ -1161,63 +1172,65 @@
         loadContainerDimensions();
 
         // Drag functionality for header
-        let isDragging = false;
-        let initialMouseX, initialMouseY;
-        let initialContainerX, initialContainerY;
+        if (BEHAVIOR_DRAG_RESIZE_ENABLED) {
+            let isDragging = false;
+            let initialMouseX, initialMouseY;
+            let initialContainerX, initialContainerY;
 
-        const doDrag = (e) => {
-            if (!isDragging) return;
+            const doDrag = (e) => {
+                if (!isDragging) return;
 
-            let newX = initialContainerX + (e.clientX - initialMouseX);
-            let newY = initialContainerY + (e.clientY - initialMouseY);
+                let newX = initialContainerX + (e.clientX - initialMouseX);
+                let newY = initialContainerY + (e.clientY - initialMouseY);
 
-            // Keep container within viewport boundaries
-            const minX = 10;
-            const minY = 10;
-            const maxX = window.innerWidth - container.offsetWidth - 10;
-            const maxY = window.innerHeight - container.offsetHeight - 10;
+                // Keep container within viewport boundaries
+                const minX = 10;
+                const minY = 10;
+                const maxX = window.innerWidth - container.offsetWidth - 10;
+                const maxY = window.innerHeight - container.offsetHeight - 10;
 
-            newX = Math.max(minX, Math.min(newX, maxX));
-            newY = Math.max(minY, Math.min(newY, maxY));
+                newX = Math.max(minX, Math.min(newX, maxX));
+                newY = Math.max(minY, Math.min(newY, maxY));
 
-            container.style.left = `${newX}px`;
-            container.style.top = `${newY}px`;
-            e.preventDefault(); // Prevent text selection during drag
-        };
+                container.style.left = `${newX}px`;
+                container.style.top = `${newY}px`;
+                e.preventDefault(); // Prevent text selection during drag
+            };
 
-        const stopDrag = () => {
-            if (!isDragging) return;
+            const stopDrag = () => {
+                if (!isDragging) return;
 
-            isDragging = false;
-            document.removeEventListener('mousemove', doDrag);
-            document.removeEventListener('mouseup', stopDrag);
-            dragHandle.style.cursor = 'grab'; // Reset cursor
+                isDragging = false;
+                document.removeEventListener('mousemove', doDrag);
+                document.removeEventListener('mouseup', stopDrag);
+                dragHandle.style.cursor = 'grab'; // Reset cursor
 
-            snapToClosestCorner(); 
-        };
+                snapToClosestCorner(); 
+            };
 
-        dragHandle.addEventListener('mousedown', function(e) {
-            // Only drag with left mouse button
-            if (e.button !== 0) return; 
+            dragHandle.addEventListener('mousedown', function(e) {
+                // Only drag with left mouse button
+                if (e.button !== 0) return; 
 
-            isDragging = true;
-            initialMouseX = e.clientX;
-            initialMouseY = e.clientY;
-            
-            const rect = container.getBoundingClientRect();
-            initialContainerX = rect.left; // This is the computed pixel value
-            initialContainerY = rect.top; // This is the computed pixel value
+                isDragging = true;
+                initialMouseX = e.clientX;
+                initialMouseY = e.clientY;
+                
+                const rect = container.getBoundingClientRect();
+                initialContainerX = rect.left; // This is the computed pixel value
+                initialContainerY = rect.top; // This is the computed pixel value
 
-            // Set position to current pixel values to prevent jump when transform is removed
-            container.style.left = `${initialContainerX}px`;
-            container.style.top = `${initialContainerY}px`;
+                // Set position to current pixel values to prevent jump when transform is removed
+                container.style.left = `${initialContainerX}px`;
+                container.style.top = `${initialContainerY}px`;
 
-            dragHandle.style.cursor = 'grabbing';
-            document.addEventListener('mousemove', doDrag);
-            document.addEventListener('mouseup', stopDrag);
+                dragHandle.style.cursor = 'grabbing';
+                document.addEventListener('mousemove', doDrag);
+                document.addEventListener('mouseup', stopDrag);
 
-            e.preventDefault();
-        });
+                e.preventDefault();
+            });
+        }
         
         return container;
     }

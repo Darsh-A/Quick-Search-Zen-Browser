@@ -14,6 +14,7 @@
     const BEHAVIOR_ANIMATION_ENABLED_PREF = "extensions.quicksearch.behavior.animation_enabled";
     const BEHAVIOR_REMEMBER_SIZE_PREF = "extensions.quicksearch.behavior.remember_size";
     const BEHAVIOR_AUTO_FOCUS_PREF = "extensions.quicksearch.behavior.auto_focus";
+    const BEHAVIOR_DRAG_RESIZE_ENABLED_PREF = "extensions.quicksearch.behavior.drag_resize_enabled";
     const SHORTCUTS_TOGGLE_KEY_PREF = "extensions.quicksearch.shortcuts.toggle_key";
     const SHORTCUTS_ESCAPE_CLOSES_PREF = "extensions.quicksearch.shortcuts.escape_closes";
 
@@ -64,6 +65,7 @@
     const BEHAVIOR_ANIMATION_ENABLED = getPref(BEHAVIOR_ANIMATION_ENABLED_PREF, true);
     const BEHAVIOR_REMEMBER_SIZE = getPref(BEHAVIOR_REMEMBER_SIZE_PREF, true);
     const BEHAVIOR_AUTO_FOCUS = getPref(BEHAVIOR_AUTO_FOCUS_PREF, true);
+    const BEHAVIOR_DRAG_RESIZE_ENABLED = getPref(BEHAVIOR_DRAG_RESIZE_ENABLED_PREF, true);
     const SHORTCUTS_TOGGLE_KEY = getPref(SHORTCUTS_TOGGLE_KEY_PREF, "Ctrl+Shift+Q");
     const SHORTCUTS_ESCAPE_CLOSES = getPref(SHORTCUTS_ESCAPE_CLOSES_PREF, true);
 
@@ -741,42 +743,36 @@
     // Function to snap container to the closest corner or center
     function snapToClosestCorner() {
         const container = document.getElementById('quicksearch-container');
+        if (!container) return;
+
         const rect = container.getBoundingClientRect();
         const currentX = rect.left;
         const currentY = rect.top;
         const containerWidth = rect.width;
         const containerHeight = rect.height;
 
-        const snapPositions = {
-            'top-left': { top: '10px', left: '10px' },
-            'top-right': { top: '10px', right: '10px' },
-            'center': { top: '50%', left: '50%' },
-            'bottom-left': { bottom: '10px', left: '10px' },
-            'bottom-right': { bottom: '10px', right: '10px' }
+        const snapPoints = {
+            'top-left': { x: 10, y: 10 },
+            'top-right': { x: window.innerWidth - containerWidth - 10, y: 10 },
+            'center': { x: (window.innerWidth - containerWidth) / 2, y: (window.innerHeight - containerHeight) / 2, transformed: true },
+            'bottom-left': { x: 10, y: window.innerHeight - containerHeight - 10 },
+            'bottom-right': { x: window.innerWidth - containerWidth - 10, y: window.innerHeight - containerHeight - 10 }
         };
 
         let closestPointName = '';
         let minDistance = Infinity;
 
-        for (const name in snapPositions) {
-            const p = snapPositions[name];
-            let targetX, targetY;
+        for (const name in snapPoints) {
+            const p = snapPoints[name];
+            let targetX = p.x;
+            let targetY = p.y;
 
-            if (name === 'center') {
-              targetX = (window.innerWidth / 2) - (containerWidth / 2);
-              targetY = (window.innerHeight / 2) - (containerHeight / 2);
-            } else {
-              if (p.left) {
-                  targetX = parseInt(p.left, 10);
-              } else if (p.right) {
-                  targetX = window.innerWidth - containerWidth - parseInt(p.right, 10);
-              }
-
-              if (p.top) {
-                  targetY = parseInt(p.top, 10);
-              } else if (p.bottom) {
-                  targetY = window.innerHeight - containerHeight - parseInt(p.bottom, 10);
-              }
+            // If a transform (like translate(-50%,-50%)) is applied,
+            // the CSS `left`/`top` values (targetX, targetY) would result in a *different* effective
+            // top-left pixel position. Adjust targetX/Y for distance calculation to reflect this.
+            if (p.transformed) { // Only 'center' has this property in our setup
+                targetX -= containerWidth / 2;
+                targetY -= containerHeight / 2;
             }
 
             const distance = Math.sqrt(Math.pow(currentX - targetX, 2) + Math.pow(currentY - targetY, 2));
@@ -786,9 +782,9 @@
                 closestPointName = name;
             }
         }
-        applyContainerPosition(closestPointName);
-        CONTAINER_POSITION = closestPointName;
-        setPref(CONTAINER_POSITION_PREF, closestPointName);
+        CONTAINER_POSITION = closestPointName; 
+        applyContainerPosition(CONTAINER_POSITION); 
+        setPref(CONTAINER_POSITION_PREF, CONTAINER_POSITION); 
     }
 
     // Create and initialize the search container
@@ -807,8 +803,11 @@
         const searchBarContainer = document.createElement('div');
         searchBarContainer.id = 'quicksearch-searchbar-container';
         
-        const dragHandle = document.createElement('div');
-        dragHandle.id = 'quicksearch-drag-handle';
+        let dragHandle;
+        if (BEHAVIOR_DRAG_RESIZE_ENABLED) {
+            dragHandle = document.createElement('div');
+            dragHandle.id = 'quicksearch-drag-handle';
+        }
 
         const searchBar = document.createElement('input');
         searchBar.id = 'quicksearch-searchbar';
@@ -834,7 +833,6 @@
 
         quicksearchEngineWrapper.appendChild(quicksearchEngineButton);
         quicksearchEngineWrapper.appendChild(quicksearchOptions);
-        searchBarContainer.appendChild(quicksearchEngineWrapper);
 
         quicksearchEngineButton.addEventListener('click', (e) => {
           e.stopPropagation();  
@@ -881,7 +879,7 @@
         
         const closeButton = document.createElement('button');
         closeButton.className = 'quicksearch-close-button';
-        closeButton.innerHTML = '&#10005;';
+        closeButton.innerHTML = '✕';
         closeButton.title = 'Close';
         closeButton.onclick = (e) => {
             e.stopPropagation();
@@ -895,7 +893,9 @@
             }
         });
         
-        searchBarContainer.appendChild(dragHandle);
+        if (BEHAVIOR_DRAG_RESIZE_ENABLED) {
+            searchBarContainer.appendChild(dragHandle);
+        }
         searchBarContainer.appendChild(searchBar);
         searchBarContainer.appendChild(quicksearchEngineWrapper);
         searchBarContainer.appendChild(closeButton);
@@ -907,70 +907,75 @@
         browserContainer.style.position = 'relative';
         browserContainer.style.overflow = 'hidden';
         
-        // Create resizer element
-        const resizer = document.createElement('div');
-        resizer.id = 'quicksearch-resizer';
-        
-        let isResizing = false;
-        let startX, startY, startWidth, startHeight;
-        
-        resizer.addEventListener('mousedown', function(e) {
-            isResizing = true;
-            startX = e.clientX;
-            startY = e.clientY;
-            startWidth = container.offsetWidth;
-            startHeight = container.offsetHeight;
-            document.addEventListener('mousemove', doResize);
-            document.addEventListener('mouseup', stopResize);
-        });
-        
-        function doResize(e) {
-            if (!isResizing) return;
+        let resizer;
+        if (BEHAVIOR_DRAG_RESIZE_ENABLED) {
+            // Create resizer element
+            resizer = document.createElement('div');
+            resizer.id = 'quicksearch-resizer';
             
-            // Adjust for current CONTAINER_POSITION to ensure intuitive resizing
-            let width = startWidth;
-            let height = startHeight;
+            let isResizing = false;
+            let startX, startY, startWidth, startHeight;
+            
+            resizer.addEventListener('mousedown', function(e) {
+                isResizing = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                startWidth = container.offsetWidth;
+                startHeight = container.offsetHeight;
+                document.addEventListener('mousemove', doResize);
+                document.addEventListener('mouseup', stopResize);
+            });
+            
+            function doResize(e) {
+                if (!isResizing) return;
+                
+                // Adjust for current CONTAINER_POSITION to ensure intuitive resizing
+                let width = startWidth;
+                let height = startHeight;
 
-            if (CONTAINER_POSITION.includes('right')) {
-                width = startWidth + (startX - e.clientX); // Dragging left increases width
-            } else { // 'left' or 'center'
-                width = startWidth + (e.clientX - startX); // Dragging right increases width
+                if (CONTAINER_POSITION.includes('right')) {
+                    width = startWidth + (startX - e.clientX); // Dragging left increases width
+                } else { // 'left' or 'center'
+                    width = startWidth + (e.clientX - startX); // Dragging right increases width
+                }
+
+                if (CONTAINER_POSITION.includes('bottom')) {
+                    height = startHeight + (startY - e.clientY); // Dragging up increases height
+                } else { // 'top' or 'center'
+                    height = startHeight + (e.clientY - startY); // Dragging down increases height
+                }
+                
+                // Enforce minimum dimensions
+                width = Math.max(width, 200);
+                height = Math.max(height, 150);
+
+                // Enforce maximum dimensions
+                width = Math.min(width, window.innerWidth * 0.7);
+                height = Math.min(height, window.innerHeight * 0.7);
+                
+                container.style.width = width + 'px';
+                container.style.height = height + 'px';
             }
-
-            if (CONTAINER_POSITION.includes('bottom')) {
-                height = startHeight + (startY - e.clientY); // Dragging up increases height
-            } else { // 'top' or 'center'
-                height = startHeight + (e.clientY - startY); // Dragging down increases height
+            
+            function stopResize() {
+                if (!isResizing) return;
+                
+                isResizing = false;
+                document.removeEventListener('mousemove', doResize);
+                document.removeEventListener('mouseup', stopResize);
+                
+                // Save the new dimensions
+                saveContainerDimensions(container.offsetWidth, container.offsetHeight);
+                // Snap to corner after resizing to adjust position if it shifted relative to page
+                snapToClosestCorner();
             }
-            
-            // Enforce minimum dimensions
-            width = Math.max(width, 200);
-            height = Math.max(height, 150);
-
-            // Enforce maximum dimensions
-            width = Math.min(width, window.innerWidth * 0.7);
-            height = Math.min(height, window.innerHeight * 0.7);
-            
-            container.style.width = width + 'px';
-            container.style.height = height + 'px';
-        }
-        
-        function stopResize() {
-            if (!isResizing) return;
-            
-            isResizing = false;
-            document.removeEventListener('mousemove', doResize);
-            document.removeEventListener('mouseup', stopResize);
-            
-            // Save the new dimensions
-            saveContainerDimensions(container.offsetWidth, container.offsetHeight);
-            // Snap to corner after resizing to adjust position if it shifted relative to page
-            snapToClosestCorner();
         }
         
         container.appendChild(searchBarContainer);
         container.appendChild(browserContainer);
-        container.appendChild(resizer);
+        if (BEHAVIOR_DRAG_RESIZE_ENABLED) {
+            container.appendChild(resizer);
+        }
         
         document.body.appendChild(container);
 
@@ -979,64 +984,66 @@
         applyContainerPosition(CONTAINER_POSITION);
         loadContainerDimensions();
 
-        // Drag functionality for header (searchBarContainer)
-        let isDragging = false;
-        let initialMouseX, initialMouseY;
-        let initialContainerX, initialContainerY;
+        if (BEHAVIOR_DRAG_RESIZE_ENABLED) {
+            // Drag functionality for header (searchBarContainer)
+            let isDragging = false;
+            let initialMouseX, initialMouseY;
+            let initialContainerX, initialContainerY;
 
-        const doDrag = (e) => {
-            if (!isDragging) return;
+            const doDrag = (e) => {
+                if (!isDragging) return;
 
-            let newX = initialContainerX + (e.clientX - initialMouseX);
-            let newY = initialContainerY + (e.clientY - initialMouseY);
+                let newX = initialContainerX + (e.clientX - initialMouseX);
+                let newY = initialContainerY + (e.clientY - initialMouseY);
 
-            // Keep container within viewport boundaries
-            const minX = 10;
-            const minY = 10;
-            const maxX = window.innerWidth - container.offsetWidth - 10;
-            const maxY = window.innerHeight - container.offsetHeight - 10;
+                // Keep container within viewport boundaries
+                const minX = 10;
+                const minY = 10;
+                const maxX = window.innerWidth - container.offsetWidth - 10;
+                const maxY = window.innerHeight - container.offsetHeight - 10;
 
-            newX = Math.max(minX, Math.min(newX, maxX));
-            newY = Math.max(minY, Math.min(newY, maxY));
+                newX = Math.max(minX, Math.min(newX, maxX));
+                newY = Math.max(minY, Math.min(newY, maxY));
 
-            container.style.left = `${newX}px`;
-            container.style.top = `${newY}px`;
-            e.preventDefault(); // Prevent text selection during drag
-        };
+                container.style.left = `${newX}px`;
+                container.style.top = `${newY}px`;
+                e.preventDefault(); // Prevent text selection during drag
+            };
 
-        const stopDrag = () => {
-            if (!isDragging) return;
+            const stopDrag = () => {
+                if (!isDragging) return;
 
-            isDragging = false;
-            document.removeEventListener('mousemove', doDrag);
-            document.removeEventListener('mouseup', stopDrag);
-            dragHandle.style.cursor = 'grab'; // Reset cursor
+                isDragging = false;
+                document.removeEventListener('mousemove', doDrag);
+                document.removeEventListener('mouseup', stopDrag);
+                dragHandle.style.cursor = 'grab'; // Reset cursor
 
-            snapToClosestCorner();
-        };
+                snapToClosestCorner();
+            };
 
-        dragHandle.addEventListener('mousedown', function(e) {
-            // Only drag with left mouse button
-            if (e.button !== 0) return; 
+            dragHandle.addEventListener('mousedown', function(e) {
+                // Only drag with left mouse button
+                if (e.button !== 0) return; 
 
-            isDragging = true;
-            initialMouseX = e.clientX;
-            initialMouseY = e.clientY;
-            
-            const rect = container.getBoundingClientRect();
-            initialContainerX = rect.left; // This is the computed pixel value
-            initialContainerY = rect.top; // This is the computed pixel value
+                isDragging = true;
+                initialMouseX = e.clientX;
+                initialMouseY = e.clientY;
+                
+                const rect = container.getBoundingClientRect();
+                initialContainerX = rect.left; // This is the computed pixel value
+                initialContainerY = rect.top; // This is the computed pixel value
 
-            // Set position to current pixel values to prevent jump when transform is removed
-            container.style.left = `${initialContainerX}px`;
-            container.style.top = `${initialContainerY}px`;
+                // Set position to current pixel values to prevent jump when transform is removed
+                container.style.left = `${initialContainerX}px`;
+                container.style.top = `${initialContainerY}px`;
 
-            dragHandle.style.cursor = 'grabbing';
-            document.addEventListener('mousemove', doDrag);
-            document.addEventListener('mouseup', stopDrag);
+                dragHandle.style.cursor = 'grabbing';
+                document.addEventListener('mousemove', doDrag);
+                document.addEventListener('mouseup', stopDrag);
 
-            e.preventDefault();
-        });
+                e.preventDefault();
+            });
+        }
         
         return container;
     }
