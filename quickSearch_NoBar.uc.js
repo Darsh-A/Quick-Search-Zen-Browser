@@ -741,36 +741,42 @@
     // Function to snap container to the closest corner or center
     function snapToClosestCorner() {
         const container = document.getElementById('quicksearch-container');
-        if (!container) return;
-
         const rect = container.getBoundingClientRect();
         const currentX = rect.left;
         const currentY = rect.top;
         const containerWidth = rect.width;
         const containerHeight = rect.height;
 
-        const snapPoints = {
-            'top-left': { x: 10, y: 10 },
-            'top-right': { x: window.innerWidth - containerWidth - 10, y: 10 },
-            'center': { x: (window.innerWidth - containerWidth) / 2, y: (window.innerHeight - containerHeight) / 2, transformed: true },
-            'bottom-left': { x: 10, y: window.innerHeight - containerHeight - 10 },
-            'bottom-right': { x: window.innerWidth - containerWidth - 10, y: window.innerHeight - containerHeight - 10 }
+        const snapPositions = {
+            'top-left': { top: '10px', left: '10px' },
+            'top-right': { top: '10px', right: '10px' },
+            'center': { top: '50%', left: '50%' },
+            'bottom-left': { bottom: '10px', left: '10px' },
+            'bottom-right': { bottom: '10px', right: '10px' }
         };
 
         let closestPointName = '';
         let minDistance = Infinity;
 
-        for (const name in snapPoints) {
-            const p = snapPoints[name];
-            let targetX = p.x;
-            let targetY = p.y;
+        for (const name in snapPositions) {
+            const p = snapPositions[name];
+            let targetX, targetY;
 
-            // If a transform (like translate(-50%,-50%)) is applied,
-            // the CSS `left`/`top` values (targetX, targetY) would result in a *different* effective
-            // top-left pixel position. Adjust targetX/Y for distance calculation to reflect this.
-            if (p.transformed) { // Only 'center' has this property in our setup
-                targetX -= containerWidth / 2;
-                targetY -= containerHeight / 2;
+            if (name === 'center') {
+              targetX = (window.innerWidth / 2) - (containerWidth / 2);
+              targetY = (window.innerHeight / 2) - (containerHeight / 2);
+            } else {
+              if (p.left) {
+                  targetX = parseInt(p.left, 10);
+              } else if (p.right) {
+                  targetX = window.innerWidth - containerWidth - parseInt(p.right, 10);
+              }
+
+              if (p.top) {
+                  targetY = parseInt(p.top, 10);
+              } else if (p.bottom) {
+                  targetY = window.innerHeight - containerHeight - parseInt(p.bottom, 10);
+              }
             }
 
             const distance = Math.sqrt(Math.pow(currentX - targetX, 2) + Math.pow(currentY - targetY, 2));
@@ -780,9 +786,9 @@
                 closestPointName = name;
             }
         }
-        CONTAINER_POSITION = closestPointName; 
-        applyContainerPosition(CONTAINER_POSITION); 
-        setPref(CONTAINER_POSITION_PREF, CONTAINER_POSITION); 
+        applyContainerPosition(closestPointName);
+        CONTAINER_POSITION = closestPointName;
+        setPref(CONTAINER_POSITION_PREF, closestPointName);
     }
 
     // Create and initialize the search container
