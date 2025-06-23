@@ -1155,6 +1155,7 @@
                 
                 // Save the new dimensions
                 saveContainerDimensions(container.offsetWidth, container.offsetHeight);
+                if (CONTAINER_POSITION == 'center') applyContainerPosition('center')
             }
         }
         
