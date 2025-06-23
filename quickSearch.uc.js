@@ -902,35 +902,38 @@
         const positions = {
             'top-right': { top: '10px', right: '10px', left: 'auto', bottom: 'auto' },
             'top-left': { top: '10px', left: '10px', right: 'auto', bottom: 'auto' },
-            'center': { top: '50%', left: '50%', right: 'auto', bottom: 'auto', transform: 'translate(-50%, -50%)' },
             'bottom-right': { bottom: '10px', right: '10px', top: 'auto', left: 'auto' },
             'bottom-left': { bottom: '10px', left: '10px', top: 'auto', right: 'auto' }
         };
 
         const targetPosition = positions[positionName] || positions['top-right'];
 
-        // Apply new properties to container
-        container.style.top = targetPosition.top;
-        container.style.right = targetPosition.right;
-        container.style.left = targetPosition.left;
-        container.style.bottom = targetPosition.bottom;
-        
         if (positionName === 'center') {
-            container.style.transform = targetPosition.transform;
-        } else {
-            container.style.removeProperty('transform');
-        }
+            // Calculate center position in pixels
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            const containerWidth = container.offsetWidth;
+            const containerHeight = container.offsetHeight;
 
+            const left = (windowWidth - containerWidth) / 2;
+            const top = (windowHeight - containerHeight) / 2;
+
+            container.style.top = `${top}px`;
+            container.style.left = `${left}px`;
+            container.style.right = 'auto';
+            container.style.bottom = 'auto';
+        } else {
+          for (const property in targetPosition) {
+              container.style[property] = targetPosition[property];
+          }
+        }
+        
         // Apply styles to resizer element based on new position
         if (resizer) {
             const resizerStyles = resize_habdle_styles[positionName] || resize_habdle_styles['top-right'];
-            resizer.style.inset = 'auto';
-            resizer.style.top = resizerStyles.top;
-            resizer.style.right = resizerStyles.right;
-            resizer.style.left = resizerStyles.left;
-            resizer.style.bottom = resizerStyles.bottom;
-            resizer.style.cursor = resizerStyles.cursor;
-            resizer.style.transform = resizerStyles.transform;
+            for (const property in resizerStyles) {
+                 resizer.style[property] = resizerStyles[property];
+             }
         }
     }
 
@@ -1187,11 +1190,6 @@
             initialContainerX = rect.left; // This is the computed pixel value
             initialContainerY = rect.top; // This is the computed pixel value
 
-            // Remove existing positioning properties to allow direct top/left manipulation
-            container.style.removeProperty('right');
-            container.style.removeProperty('bottom');
-            container.style.removeProperty('transform');
-            
             // Set position to current pixel values to prevent jump when transform is removed
             container.style.left = `${initialContainerX}px`;
             container.style.top = `${initialContainerY}px`;
