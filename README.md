@@ -153,6 +153,8 @@ All preferences are located under the `extensions.quicksearch.*` branch in `abou
   - Enable/disable slide-in/slide-out animations
 - `extensions.quicksearch.behavior.remember_size` (boolean, default: true)
   - Remember and restore container dimensions between sessions
+- `extensions.quicksearch.behavior.drag_resize_enabled` (boolean, default: true)
+  - Enable Resize and drag and drop.
 - `extensions.quicksearch.behavior.auto_focus` (boolean, default: true)
   - Automatically focus search input when Quick Search opens
 
