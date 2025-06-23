@@ -110,6 +110,14 @@
     "description": "Remember and restore the last used container dimensions"
   },
   {
+    "property": "extensions.quicksearch.behavior.drag_resize_enabled",
+    "label": "Enable Drag and Drop",
+    "type": "checkbox",
+    "placeholder": false,
+    "default": true,
+    "description": "Enable resize and change position of container with drag and drop"
+  },
+  {
     "property": "extensions.quicksearch.behavior.auto_focus",
     "label": "Auto Focus Search Bar",
     "type": "checkbox",
