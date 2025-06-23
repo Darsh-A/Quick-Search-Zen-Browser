@@ -105,7 +105,7 @@
     }
 
     // Global definition for resizer styles to be used dynamically
-    const resize_habdle_styles = {
+    const resize_handle_styles = {
         'top-left': { top: 'auto', left: 'auto', right: '0', bottom: '0', transform: 'rotate(90deg)', cursor: 'se-resize' },
         'center': { top: 'auto', left: 'auto', right: '0', bottom: '0', transform: 'rotate(90deg)', cursor: 'se-resize' },
         'top-right': { top: 'auto', right: 'auto', left: '0', bottom: '0', transform: 'rotate(180deg)', cursor: 'sw-resize' },
@@ -167,28 +167,28 @@
         const css = `
             @keyframes quicksearchSlideIn {
                 0% {
-                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(0.8)' : 'translateY(-100%)'};
+                    transform: ${position === 'center' ? 'scale(0.8)' : 'translateY(-100%)'};
                     opacity: 0;
                 }
                 60% {
-                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(1.05)' : 'translateY(5%)'};
+                    transform: ${position === 'center' ? 'scale(1.05)' : 'translateY(5%)'};
                     opacity: 1;
                 }
                 80% {
-                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(0.98)' : 'translateY(-2%)'};
+                    transform: ${position === 'center' ? 'scale(0.98)' : 'translateY(-2%)'};
                 }
                 100% {
-                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(1)' : 'translateY(0)'};
+                    transform: ${position === 'center' ? 'scale(1)' : 'translateY(0)'};
                 }
             }
             
             @keyframes quicksearchSlideOut {
                 0% {
-                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(1)' : 'translateY(0)'};
+                    transform: ${position === 'center' ? 'scale(1)' : 'translateY(0)'};
                     opacity: 1;
                 }
                 100% {
-                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(0.8)' : 'translateY(-100%)'};
+                    transform: ${position === 'center' ? 'scale(0.8)' : 'translateY(-100%)'};
                     opacity: 0;
                 }
             }
@@ -912,8 +912,8 @@
             // Calculate center position in pixels
             const windowWidth = window.innerWidth;
             const windowHeight = window.innerHeight;
-            const containerWidth = container.offsetWidth;
-            const containerHeight = container.offsetHeight;
+            const containerWidth = container.offsetWidth || CONTAINER_WIDTH ;
+            const containerHeight = container.offsetHeight || CONTAINER_HEIGHT;
 
             const left = (windowWidth - containerWidth) / 2;
             const top = (windowHeight - containerHeight) / 2;
@@ -930,7 +930,7 @@
         
         // Apply styles to resizer element based on new position
         if (resizer) {
-            const resizerStyles = resize_habdle_styles[positionName] || resize_habdle_styles['top-right'];
+            const resizerStyles = resize_handle_styles[positionName] || resize_handle_styles['top-right'];
             for (const property in resizerStyles) {
                  resizer.style[property] = resizerStyles[property];
              }
