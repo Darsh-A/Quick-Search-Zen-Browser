@@ -31,6 +31,7 @@ https://github.com/user-attachments/assets/827215fc-e985-4f71-8646-6e3a6b7e624b
 - **Flexible positioning**: Top-right, top-left, center, bottom corners
 - **Resizable container**: Drag to resize, remembers your preferred size
 - **Smooth animations**: Configurable slide-in/out effects
+- **Drag and Drop**: Resize and change position easily with drag and drop 
 
 ### ⚡ **Advanced Functionality**
 - **Zen Glance Mode**: Launch searches in Zen Browser's Glance mode
