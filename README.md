@@ -31,6 +31,7 @@ https://github.com/user-attachments/assets/827215fc-e985-4f71-8646-6e3a6b7e624b
 - **Flexible positioning**: Top-right, top-left, center, bottom corners
 - **Resizable container**: Drag to resize, remembers your preferred size
 - **Smooth animations**: Configurable slide-in/out effects
+- **Drag and Drop**: Resize and change position easily with drag and drop 
 
 ### ⚡ **Advanced Functionality**
 - **Zen Glance Mode**: Launch searches in Zen Browser's Glance mode
@@ -152,6 +153,8 @@ All preferences are located under the `extensions.quicksearch.*` branch in `abou
   - Enable/disable slide-in/slide-out animations
 - `extensions.quicksearch.behavior.remember_size` (boolean, default: true)
   - Remember and restore container dimensions between sessions
+- `extensions.quicksearch.behavior.drag_resize_enabled` (boolean, default: true)
+  - Enable Resize and drag and drop.
 - `extensions.quicksearch.behavior.auto_focus` (boolean, default: true)
   - Automatically focus search input when Quick Search opens
 

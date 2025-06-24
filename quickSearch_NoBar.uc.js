@@ -9,9 +9,12 @@
     const CONTEXT_MENU_ACCESS_KEY_PREF = "extensions.quicksearch.context_menu.access_key";
     const CONTAINER_POSITION_PREF = "extensions.quicksearch.container.position";
     const CONTAINER_THEME_PREF = "extensions.quicksearch.container.theme";
+    const CONTAINER_WIDTH_PREF = "extensions.quicksearch.container.width";
+    const CONTAINER_HEIGHT_PREF = "extensions.quicksearch.container.height";
     const BEHAVIOR_ANIMATION_ENABLED_PREF = "extensions.quicksearch.behavior.animation_enabled";
     const BEHAVIOR_REMEMBER_SIZE_PREF = "extensions.quicksearch.behavior.remember_size";
     const BEHAVIOR_AUTO_FOCUS_PREF = "extensions.quicksearch.behavior.auto_focus";
+    const BEHAVIOR_DRAG_RESIZE_ENABLED_PREF = "extensions.quicksearch.behavior.drag_resize_enabled";
     const SHORTCUTS_TOGGLE_KEY_PREF = "extensions.quicksearch.shortcuts.toggle_key";
     const SHORTCUTS_ESCAPE_CLOSES_PREF = "extensions.quicksearch.shortcuts.escape_closes";
 
@@ -55,11 +58,14 @@
     const CONTEXT_MENU_ENABLED = getPref(CONTEXT_MENU_ENABLED_PREF, true);
     const CONTEXT_MENU_ENGINE = getPref(CONTEXT_MENU_ENGINE_PREF, "@ddg");
     const CONTEXT_MENU_ACCESS_KEY = getPref(CONTEXT_MENU_ACCESS_KEY_PREF, "Q");
-    const CONTAINER_POSITION = getPref(CONTAINER_POSITION_PREF, "top-right");
+    let CONTAINER_POSITION = getPref(CONTAINER_POSITION_PREF, "top-right");
     const CONTAINER_THEME = getPref(CONTAINER_THEME_PREF, "dark");
+    const CONTAINER_WIDTH = getPref(CONTAINER_WIDTH_PREF, 550);
+    const CONTAINER_HEIGHT = getPref(CONTAINER_HEIGHT_PREF, 300);
     const BEHAVIOR_ANIMATION_ENABLED = getPref(BEHAVIOR_ANIMATION_ENABLED_PREF, true);
     const BEHAVIOR_REMEMBER_SIZE = getPref(BEHAVIOR_REMEMBER_SIZE_PREF, true);
     const BEHAVIOR_AUTO_FOCUS = getPref(BEHAVIOR_AUTO_FOCUS_PREF, true);
+    const BEHAVIOR_DRAG_RESIZE_ENABLED = getPref(BEHAVIOR_DRAG_RESIZE_ENABLED_PREF, true);
     const SHORTCUTS_TOGGLE_KEY = getPref(SHORTCUTS_TOGGLE_KEY_PREF, "Ctrl+Shift+Q");
     const SHORTCUTS_ESCAPE_CLOSES = getPref(SHORTCUTS_ESCAPE_CLOSES_PREF, true);
 
@@ -100,6 +106,15 @@
         quicksearchEngineButton.appendChild(document.createTextNode(currentSearchEngine.name));
       }
     }
+
+    // Global definition for resizer styles to be used dynamically
+    const resize_handle_styles = {
+        'top-left': { top: 'auto', left: 'auto', right: '0', bottom: '0', transform: 'rotate(90deg)', cursor: 'se-resize' },
+        'center': { top: 'auto', left: 'auto', right: '0', bottom: '0', transform: 'rotate(90deg)', cursor: 'se-resize' },
+        'top-right': { top: 'auto', right: 'auto', left: '0', bottom: '0', transform: 'rotate(180deg)', cursor: 'sw-resize' },
+        'bottom-left': { bottom: 'auto', left: 'auto', top: '0', right: '0', transform: 'rotate(0deg)', cursor: 'ne-resize' },
+        'bottom-right': { bottom: 'auto', right: 'auto', top: '0', left: '0', transform: 'rotate(270deg)', cursor: 'nw-resize' },
+    };
 
     const injectCSS = (theme = 'dark', position = 'top-right', animationsEnabled = true) => {
         // Theme configurations
@@ -159,53 +174,37 @@
 
         const currentTheme = themes[theme] || themes.dark;
 
-        // Position configurations
-        const positions = {
-            'top-right': { top: '10px', right: '10px', left: 'auto', bottom: 'auto' },
-            'top-left': { top: '10px', left: '10px', right: 'auto', bottom: 'auto' },
-            'center': { top: '50%', left: '50%', right: 'auto', bottom: 'auto', transform: 'translate(-50%, -50%)' },
-            'bottom-right': { bottom: '10px', right: '10px', top: 'auto', left: 'auto' },
-            'bottom-left': { bottom: '10px', left: '10px', top: 'auto', right: 'auto' }
-        };
-
-        const currentPosition = positions[position] || positions['top-right'];
-
         const css = `
             @keyframes quicksearchSlideIn {
                 0% {
-                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(0.8)' : 'translateY(-100%)'};
+                    transform: ${position === 'center' ? 'scale(0.8)' : 'translateY(-100%)'};
                     opacity: 0;
                 }
                 60% {
-                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(1.05)' : 'translateY(5%)'};
+                    transform: ${position === 'center' ? 'scale(1.05)' : 'translateY(5%)'};
                     opacity: 1;
                 }
                 80% {
-                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(0.98)' : 'translateY(-2%)'};
+                    transform: ${position === 'center' ? 'scale(0.98)' : 'translateY(-2%)'};
                 }
                 100% {
-                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(1)' : 'translateY(0)'};
+                    transform: ${position === 'center' ? 'scale(1)' : 'translateY(0)'};
                 }
             }
             
             @keyframes quicksearchSlideOut {
                 0% {
-                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(1)' : 'translateY(0)'};
+                    transform: ${position === 'center' ? 'scale(1)' : 'translateY(0)'};
                     opacity: 1;
                 }
                 100% {
-                    transform: ${position === 'center' ? 'translate(-50%, -50%) scale(0.8)' : 'translateY(-100%)'};
+                    transform: ${position === 'center' ? 'scale(0.8)' : 'translateY(-100%)'};
                     opacity: 0;
                 }
             }
             
             #quicksearch-container {
                 position: fixed;
-                top: ${currentPosition.top};
-                right: ${currentPosition.right};
-                left: ${currentPosition.left};
-                bottom: ${currentPosition.bottom};
-                ${currentPosition.transform ? `transform: ${currentPosition.transform};` : ''}
                 width: 550px;
                 min-width: 200px;
                 min-height: 150px;
@@ -241,6 +240,17 @@
                 align-items: center;
                 min-height: 56px;
                 box-sizing: border-box;
+                position: relative;
+            }
+
+            #quicksearch-drag-handle {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                cursor: grab;
+                z-index: 0;
             }
             
             #quicksearch-searchbar {
@@ -254,6 +264,8 @@
                 color: ${currentTheme.textColor};
                 outline: none;
                 transition: background-color 0.2s;
+                position: relative;
+                z-index: 1;
             }
             
             #quicksearch-searchbar:focus {
@@ -300,6 +312,8 @@
                 cursor: pointer;
                 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
                 transition: background-color 0.2s, transform 0.2s;
+                position: relative;
+                z-index: 1;
             }
             
             .quicksearch-close-button:hover {
@@ -318,9 +332,7 @@
                 border-style: solid;
                 border-width: 0 16px 16px 0;
                 border-color: transparent #fff transparent transparent;
-                cursor: sw-resize;
                 z-index: 10001;
-                transform: rotate(180deg);
             }
 
             #quicksearch-engine-select-wrapper {
@@ -328,6 +340,7 @@
               display: inline-block;
               min-width: 150px;
               font-size: 14px;
+              z-index: 1;
             }
 
             #quicksearch-engine-select {
@@ -344,6 +357,7 @@
               display: flex;
               align-items: center;
               gap: 4px;
+              cursor: pointer;
               transition: background-color 0.2s;
             }
 
@@ -668,26 +682,124 @@
     }
 
     function saveContainerDimensions(width, height) {
-        // Container dimensions are no longer saved - using fixed default size
-        console.log('QuickSearch NoBar: Container dimensions not saved (width/height settings removed)');
+        if (BEHAVIOR_REMEMBER_SIZE) {
+            setPref(CONTAINER_WIDTH_PREF, width)
+            setPref(CONTAINER_HEIGHT_PREF, height)
+        }
     }
 
     function loadContainerDimensions() {
-        // Use fixed default dimensions
-        const width = 550;
-        const height = 300;
-
         const container = document.getElementById('quicksearch-container');
+        const width  = CONTAINER_WIDTH 
+        const height = CONTAINER_HEIGHT
         if (container) {
             container.style.width = `${width}px`;
             container.style.height = `${height}px`;
         }
     }
 
+    // Helper to apply position styles to container and resizer
+     function applyContainerPosition(positionName) {
+        let container = document.getElementById('quicksearch-container');
+        const resizer = document.getElementById('quicksearch-resizer');
+        const positions = {
+            'top-right': { top: '10px', right: '10px', left: 'auto', bottom: 'auto' },
+            'top-left': { top: '10px', left: '10px', right: 'auto', bottom: 'auto' },
+            'bottom-right': { bottom: '10px', right: '10px', top: 'auto', left: 'auto' },
+            'bottom-left': { bottom: '10px', left: '10px', top: 'auto', right: 'auto' }
+        };
+
+        const targetPosition = positions[positionName] || positions['top-right'];
+
+        if (positionName === 'center') {
+            // Calculate center position in pixels
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            const containerWidth = container.offsetWidth || CONTAINER_WIDTH ;
+            const containerHeight = container.offsetHeight || CONTAINER_HEIGHT;
+
+            const left = (windowWidth - containerWidth) / 2;
+            const top = (windowHeight - containerHeight) / 2;
+
+            container.style.top = `${top}px`;
+            container.style.left = `${left}px`;
+            container.style.right = 'auto';
+            container.style.bottom = 'auto';
+        } else {
+          for (const property in targetPosition) {
+              container.style[property] = targetPosition[property];
+          }
+        }
+        
+        // Apply styles to resizer element based on new position
+        if (resizer) {
+            const resizerStyles = resize_handle_styles[positionName] || resize_handle_styles['top-right'];
+            for (const property in resizerStyles) {
+                 resizer.style[property] = resizerStyles[property];
+             }
+        }
+    }
+
+    // Function to snap container to the closest corner or center
+    function snapToClosestCorner() {
+        const container = document.getElementById('quicksearch-container');
+        const rect = container.getBoundingClientRect();
+        const currentX = rect.left;
+        const currentY = rect.top;
+        const containerWidth = rect.width;
+        const containerHeight = rect.height;
+
+        const snapPositions = {
+            'top-left': { top: '10px', left: '10px' },
+            'top-right': { top: '10px', right: '10px' },
+            'center': { top: '50%', left: '50%' },
+            'bottom-left': { bottom: '10px', left: '10px' },
+            'bottom-right': { bottom: '10px', right: '10px' }
+        };
+
+        let closestPointName = '';
+        let minDistance = Infinity;
+
+        for (const name in snapPositions) {
+            const p = snapPositions[name];
+            let targetX, targetY;
+
+            if (name === 'center') {
+              targetX = (window.innerWidth / 2) - (containerWidth / 2);
+              targetY = (window.innerHeight / 2) - (containerHeight / 2);
+            } else {
+              if (p.left) {
+                  targetX = parseInt(p.left, 10);
+              } else if (p.right) {
+                  targetX = window.innerWidth - containerWidth - parseInt(p.right, 10);
+              }
+
+              if (p.top) {
+                  targetY = parseInt(p.top, 10);
+              } else if (p.bottom) {
+                  targetY = window.innerHeight - containerHeight - parseInt(p.bottom, 10);
+              }
+            }
+
+            const distance = Math.sqrt(Math.pow(currentX - targetX, 2) + Math.pow(currentY - targetY, 2));
+
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestPointName = name;
+            }
+        }
+        applyContainerPosition(closestPointName);
+        CONTAINER_POSITION = closestPointName;
+        setPref(CONTAINER_POSITION_PREF, closestPointName);
+    }
+
+    // Create and initialize the search container
     function createSearchContainer() {
         let container = document.getElementById('quicksearch-container');
+        
         if (container) {
-             loadContainerDimensions();
+             // Apply position and resizer styles based on saved preference
+             applyContainerPosition(CONTAINER_POSITION);
             return container;
         }
         
@@ -697,6 +809,12 @@
         const searchBarContainer = document.createElement('div');
         searchBarContainer.id = 'quicksearch-searchbar-container';
         
+        let dragHandle;
+        if (BEHAVIOR_DRAG_RESIZE_ENABLED) {
+            dragHandle = document.createElement('div');
+            dragHandle.id = 'quicksearch-drag-handle';
+        }
+
         const searchBar = document.createElement('input');
         searchBar.id = 'quicksearch-searchbar';
         searchBar.type = 'text';
@@ -721,7 +839,6 @@
 
         quicksearchEngineWrapper.appendChild(quicksearchEngineButton);
         quicksearchEngineWrapper.appendChild(quicksearchOptions);
-        searchBarContainer.appendChild(quicksearchEngineWrapper);
 
         quicksearchEngineButton.addEventListener('click', (e) => {
           e.stopPropagation();  
@@ -768,7 +885,7 @@
         
         const closeButton = document.createElement('button');
         closeButton.className = 'quicksearch-close-button';
-        closeButton.innerHTML = '&#10005;';
+        closeButton.innerHTML = '✕';
         closeButton.title = 'Close';
         closeButton.onclick = (e) => {
             e.stopPropagation();
@@ -782,6 +899,9 @@
             }
         });
         
+        if (BEHAVIOR_DRAG_RESIZE_ENABLED) {
+            searchBarContainer.appendChild(dragHandle);
+        }
         searchBarContainer.appendChild(searchBar);
         searchBarContainer.appendChild(quicksearchEngineWrapper);
         searchBarContainer.appendChild(closeButton);
@@ -793,58 +913,143 @@
         browserContainer.style.position = 'relative';
         browserContainer.style.overflow = 'hidden';
         
-        // Create resizer element
-        const resizer = document.createElement('div');
-        resizer.id = 'quicksearch-resizer';
-        
-        let isResizing = false;
-        let startX, startY, startWidth, startHeight;
-        
-        resizer.addEventListener('mousedown', function(e) {
-            isResizing = true;
-            startX = e.clientX;
-            startY = e.clientY;
-            startWidth = container.offsetWidth;
-            startHeight = container.offsetHeight;
-            document.addEventListener('mousemove', doResize);
-            document.addEventListener('mouseup', stopResize);
-        });
-        
-        function doResize(e) {
-            if (!isResizing) return;
+        let resizer;
+        if (BEHAVIOR_DRAG_RESIZE_ENABLED) {
+            // Create resizer element
+            resizer = document.createElement('div');
+            resizer.id = 'quicksearch-resizer';
             
-            let width = startWidth - (e.clientX - startX);
-            let height = startHeight - (startY - e.clientY);
+            let isResizing = false;
+            let startX, startY, startWidth, startHeight;
             
-            // Enforce minimum dimensions
-            width = Math.max(width, 200);
-            height = Math.max(height, 150);
+            resizer.addEventListener('mousedown', function(e) {
+                isResizing = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                startWidth = container.offsetWidth;
+                startHeight = container.offsetHeight;
+                document.addEventListener('mousemove', doResize);
+                document.addEventListener('mouseup', stopResize);
+            });
+            
+            function doResize(e) {
+                if (!isResizing) return;
+                
+                // Adjust for current CONTAINER_POSITION to ensure intuitive resizing
+                let width = startWidth;
+                let height = startHeight;
 
-            // Enforce maximum dimensions
-            width = Math.min(width, window.innerWidth * 0.7);
-            height = Math.min(height, window.innerHeight * 0.7);
+                if (CONTAINER_POSITION.includes('right')) {
+                    width = startWidth + (startX - e.clientX); // Dragging left increases width
+                } else { // 'left' or 'center'
+                    width = startWidth + (e.clientX - startX); // Dragging right increases width
+                }
+
+                if (CONTAINER_POSITION.includes('bottom')) {
+                    height = startHeight + (startY - e.clientY); // Dragging up increases height
+                } else { // 'top' or 'center'
+                    height = startHeight + (e.clientY - startY); // Dragging down increases height
+                }
+                
+                // Enforce minimum dimensions
+                width = Math.max(width, 200);
+                height = Math.max(height, 150);
+
+                // Enforce maximum dimensions
+                width = Math.min(width, window.innerWidth * 0.7);
+                height = Math.min(height, window.innerHeight * 0.7);
+                
+                container.style.width = width + 'px';
+                container.style.height = height + 'px';
+            }
             
-            container.style.width = width + 'px';
-            container.style.height = height + 'px';
-        }
-        
-        function stopResize() {
-            if (!isResizing) return;
-            
-            isResizing = false;
-            document.removeEventListener('mousemove', doResize);
-            document.removeEventListener('mouseup', stopResize);
-            
-            // Save the new dimensions
-            saveContainerDimensions(container.offsetWidth, container.offsetHeight);
+            function stopResize() {
+                if (!isResizing) return;
+                
+                isResizing = false;
+                document.removeEventListener('mousemove', doResize);
+                document.removeEventListener('mouseup', stopResize);
+                
+                // Save the new dimensions
+                saveContainerDimensions(container.offsetWidth, container.offsetHeight);
+                if (CONTAINER_POSITION == 'center') applyContainerPosition('center')
+            }
         }
         
         container.appendChild(searchBarContainer);
         container.appendChild(browserContainer);
-        container.appendChild(resizer);
+        if (BEHAVIOR_DRAG_RESIZE_ENABLED) {
+            container.appendChild(resizer);
+        }
         
         document.body.appendChild(container);
-         loadContainerDimensions();
+
+        // Apply initial position based on preference for container and resizer
+        // Calling applyContainerPosition here will get the resizer by its ID
+        applyContainerPosition(CONTAINER_POSITION);
+        loadContainerDimensions();
+
+        if (BEHAVIOR_DRAG_RESIZE_ENABLED) {
+            // Drag functionality for header (searchBarContainer)
+            let isDragging = false;
+            let initialMouseX, initialMouseY;
+            let initialContainerX, initialContainerY;
+
+            const doDrag = (e) => {
+                if (!isDragging) return;
+
+                let newX = initialContainerX + (e.clientX - initialMouseX);
+                let newY = initialContainerY + (e.clientY - initialMouseY);
+
+                // Keep container within viewport boundaries
+                const minX = 10;
+                const minY = 10;
+                const maxX = window.innerWidth - container.offsetWidth - 10;
+                const maxY = window.innerHeight - container.offsetHeight - 10;
+
+                newX = Math.max(minX, Math.min(newX, maxX));
+                newY = Math.max(minY, Math.min(newY, maxY));
+
+                container.style.left = `${newX}px`;
+                container.style.top = `${newY}px`;
+                e.preventDefault(); // Prevent text selection during drag
+            };
+
+            const stopDrag = () => {
+                if (!isDragging) return;
+
+                isDragging = false;
+                document.removeEventListener('mousemove', doDrag);
+                document.removeEventListener('mouseup', stopDrag);
+                dragHandle.style.cursor = 'grab'; // Reset cursor
+
+                snapToClosestCorner();
+            };
+
+            dragHandle.addEventListener('mousedown', function(e) {
+                // Only drag with left mouse button
+                if (e.button !== 0) return; 
+
+                isDragging = true;
+                initialMouseX = e.clientX;
+                initialMouseY = e.clientY;
+                
+                const rect = container.getBoundingClientRect();
+                initialContainerX = rect.left; // This is the computed pixel value
+                initialContainerY = rect.top; // This is the computed pixel value
+
+                // Set position to current pixel values to prevent jump when transform is removed
+                container.style.left = `${initialContainerX}px`;
+                container.style.top = `${initialContainerY}px`;
+
+                dragHandle.style.cursor = 'grabbing';
+                document.addEventListener('mousemove', doDrag);
+                document.addEventListener('mouseup', stopDrag);
+
+                e.preventDefault();
+            });
+        }
+        
         return container;
     }
 
@@ -1000,4 +1205,4 @@
     }
 
     setTimeout(init, 1000);
-})()
+})();
