@@ -121,14 +121,14 @@
         const themes = {
             dark: {
                 containerBg: '#1e1f1f',
-                containerBorder: '#404040',
+                containerBorder: '#505050',
                 browserBg: '#2a2a2a',
                 closeBtnBg: 'rgba(240, 240, 240, 0.8)',
                 closeBtnColor: '#555',
                 closeBtnHoverBg: 'rgba(220, 220, 220, 0.9)',
                 closeBtnHoverColor: '#000',
                 headerBg: '#2a2a2a',
-                headerColor: '#e0e0e0'
+                headerColor: '#ffffff'
             },
             light: {
                 containerBg: '#ffffff',
@@ -143,14 +143,14 @@
             },
             auto: window.matchMedia('(prefers-color-scheme: dark)').matches ? {
                 containerBg: '#1e1f1f',
-                containerBorder: '#404040',
+                containerBorder: '#505050',
                 browserBg: '#2a2a2a',
                 closeBtnBg: 'rgba(240, 240, 240, 0.8)',
                 closeBtnColor: '#555',
                 closeBtnHoverBg: 'rgba(220, 220, 220, 0.9)',
                 closeBtnHoverColor: '#000',
                 headerBg: '#2a2a2a',
-                headerColor: '#e0e0e0'
+                headerColor: '#ffffff'
             } : {
                 containerBg: '#ffffff',
                 containerBorder: '#e0e0e0',
@@ -257,15 +257,26 @@
 
             #quicksearch-input {
                 flex-grow: 1;
-                padding: 4px 8px;
-                border: 1px solid ${currentTheme.containerBorder};
+                padding: 8px 10px;
+                border: 2px solid ${currentTheme.containerBorder};
                 outline: none;
                 font-size: 14px;
+                font-weight: 500;
                 box-sizing: border-box;
                 background-color: ${currentTheme.containerBg};
-                color: ${currentTheme.headerColor};
+                color: ${currentTheme.headerColor} !important;
                 border-radius: 4px;
                 z-index: 1;
+            }
+
+            #quicksearch-input::placeholder {
+                color: inherit;
+                opacity: 0.7;
+            }
+
+            #quicksearch-input:focus {
+                border-color: ${currentTheme.headerColor};
+                box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
             }
             
             #quicksearch-browser-container {
