@@ -1,6 +1,10 @@
 (function() {
     'use strict';
 
+    const { SearchService } = ChromeUtils.importESModule(
+        "moz-src:///toolkit/components/search/SearchService.sys.mjs"
+    );
+
     // --- Preference Configuration (following AI Tab Groups pattern) ---
     
     // Preference Keys
@@ -849,7 +853,7 @@
           quicksearchOptions.style.display = 'none';
         });
 
-        Services.search.getEngines().then(engines => {
+        SearchService.getEngines().then(engines => {
           engines.forEach(engine => {
             const option = document.createElement('div');
             option.id = 'quicksearch-engine-option';
@@ -873,7 +877,7 @@
             quicksearchOptions.appendChild(option);
           });
 
-          return Services.search.getDefault();
+          return SearchService.getDefault();
         }).then(defaultEngine => {
           currentSearchEngine = defaultEngine;
           const img = getFaviconImg(defaultEngine)
@@ -1080,7 +1084,7 @@
     }
 
     function getSearchURLFromInput(input) {
-        return Services.search.getEngines().then(engines => {
+        return SearchService.getEngines().then(engines => {
             let [prefix, ...rest] = input.trim().split(/\s+/);
             let searchTerm = rest.join(" ");
 
@@ -1091,7 +1095,7 @@
 
             // If no alias matched, fallback to selected engine
             if (!engine) {
-                engine = currentSearchEngine || Services.search.defaultEngine;
+                engine = currentSearchEngine || SearchService.defaultEngine;
                 searchTerm = input; // Whole input is the term
             }else{
                 currentSearchEngine = engine
@@ -1105,9 +1109,9 @@
 
     // Function to get search URL with a specific engine
     async function getSearchURLWithEngine(query, engineName) {
-        let engines = await Services.search.getEngines();
+        let engines = await SearchService.getEngines();
         let engine = engines.find(e => e.name === engineName || (e._definedAliases && e._definedAliases.includes(engineName)));
-        if (!engine) engine = await Services.search.getDefault();
+        if (!engine) engine = await SearchService.getDefault();
         let searchTerm = query.trim();
         currentSearchEngine = engine
 

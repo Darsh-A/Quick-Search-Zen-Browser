@@ -1,6 +1,10 @@
 (function() {
     'use strict';
 
+    const { SearchService } = ChromeUtils.importESModule(
+        "moz-src:///toolkit/components/search/SearchService.sys.mjs"
+    );
+
     // --- Preference Configuration (following AI Tab Groups pattern) ---
     
     // Preference Keys
@@ -586,7 +590,7 @@
                             "Quick Search Glance: Type a query and press Ctrl+Shift+Enter\n" +
                             "Prefixes: ";
 
-        Services.search.getEngines().then(engines => {
+        SearchService.getEngines().then(engines => {
             engines.forEach(engine => {
                 if (engine._definedAliases && engine._definedAliases.length > 0) {
                     urlbarTooltip += engine._definedAliases[0] + " (" + engine.name + "), ";
@@ -604,9 +608,9 @@
 
       async function getSearchURLFromInput(input) {
           let engineName = document.getElementById("urlbar-search-mode-indicator-title").innerText.trim();
-          let engines = await Services.search.getEngines();
+          let engines = await SearchService.getEngines();
           let engine = engines.find(e => e.name === engineName);
-          if (!engine) engine = await Services.search.getDefault();
+          if (!engine) engine = await SearchService.getDefault();
           let searchTerm = input.trim();
           let submission = engine.getSubmission(searchTerm);
           return submission.uri.spec;
@@ -614,10 +618,10 @@
 
     // Function to get search URL with a specific engine
     async function getSearchURLWithEngine(query, engineName) {
-        let engines = await Services.search.getEngines();
+        let engines = await SearchService.getEngines();
         let engine = engines.find(e => e.name === engineName || (e._definedAliases && e._definedAliases.includes(engineName)));
 
-        if (!engine) engine = currentSearchEngine || await Services.search.getDefault();
+        if (!engine) engine = currentSearchEngine || await SearchService.getDefault();
         currentSearchEngine = engine
 
         let searchTerm = query.trim();
@@ -1063,7 +1067,7 @@
           quicksearchOptions.style.display = 'none';
         });
 
-        Services.search.getEngines().then(engines => {
+        SearchService.getEngines().then(engines => {
             quicksearchOptions.innerHTML = '';
             engines.forEach(engine => {
                 const option = document.createElement('div');
@@ -1087,7 +1091,7 @@
                 quicksearchOptions.appendChild(option);
             });
 
-            return Services.search.getDefault();
+            return SearchService.getDefault();
         }).then(defaultEngine => {
             if (!currentSearchEngine) {
                 currentSearchEngine = defaultEngine;
